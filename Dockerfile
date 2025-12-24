@@ -1,4 +1,5 @@
 FROM python:3.10
+ENV WEB_OR_LOCAL=web
 
 # User setup für Hugging Face Security
 user root
