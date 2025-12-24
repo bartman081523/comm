@@ -48,16 +48,32 @@ class SessionManager:
         self.log_file = None
 
     def list_sessions(self):
+        # 1. Alle Dateien finden, die mit session_ beginnen
         files = glob.glob(os.path.join(self.log_dir, "session_*.json"))
         sessions = []
+        
+        # 2. Sortieren (Neueste zuerst)
         for f in sorted(files, reverse=True):
             basename = os.path.basename(f)
+            # Basis-ID extrahieren
             ts = basename.replace("session_", "").replace(".json", "")
+            
+            # --- DER FIX ---
+            # Wir nehmen erstmal die ID als Label (Fallback)
+            readable = ts 
+            
+            # Wir versuchen das Datum zu lesen, aber wenn es schiefgeht,
+            # zeigen wir die Session TROTZDEM an (statt sie zu löschen).
             try:
                 dt = datetime.strptime(ts, "%Y%m%d_%H%M%S")
                 readable = dt.strftime("%Y-%m-%d %H:%M:%S")
-                sessions.append({'id': ts, 'path': f, 'label': readable})
-            except: pass
+            except:
+                # Datei entspricht nicht dem Datumsformat? Egal, anzeigen!
+                pass
+            
+            sessions.append({'id': ts, 'path': f, 'label': readable})
+            # ---------------
+            
         return sessions
 
     def start_new_session(self):
