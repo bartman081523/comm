@@ -18,7 +18,7 @@ import importlib.util
 import sys
 
 # Ziel-Modul: Das gepatchte Core-File
-CORE_MODULE_NAME = "1014ecca5_scimind2_core"
+CORE_MODULE_NAME = "1014ecca4_scimind2_core"
 file_path = os.path.join(os.path.dirname(__file__), f"{CORE_MODULE_NAME}.py")
 
 if not os.path.exists(file_path):
