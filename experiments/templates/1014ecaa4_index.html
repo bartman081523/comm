@@ -596,14 +596,22 @@
 
         // --- WEBSOCKET ---
         function startWS() {
-            document.getElementById('session-overlay').style.display = 'none';
-            ws = new WebSocket(`ws://${location.host}/ws`);
-            ws.onmessage = (e) => {
-                const msg = JSON.parse(e.data);
-                if (msg.type === 'state') updateState(msg);
-                else if (['chat', 'history'].includes(msg.type)) msg.data.forEach(addMsg);
-            };
-        }
+    document.getElementById('session-overlay').style.display = 'none';
+    
+    // FIX FÜR HUGGINGFACE / HTTPS
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
+    
+    ws.onmessage = (e) => {
+        const msg = JSON.parse(e.data);
+        if (msg.type === 'state') updateState(msg);
+        else if (['chat', 'history'].includes(msg.type)) msg.data.forEach(addMsg);
+    };
+    
+    // Optional: Debugging
+    ws.onerror = (e) => console.error("WebSocket Error:", e);
+    ws.onclose = () => console.log("WebSocket Disconnected");
+}
 
         function setMode(m) {
             mode = m;
