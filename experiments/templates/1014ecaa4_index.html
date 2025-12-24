@@ -119,13 +119,19 @@
             background: linear-gradient(180deg, rgba(0, 0, 0, 0.2) 0%, rgba(0, 0, 0, 0) 100%);
         }
 
-        .msg {
-            padding: 10px 15px;
-            border-radius: 6px;
-            font-size: 0.95em;
-            line-height: 1.5;
-            max-width: 90%;
-            word-wrap: break-word;
+        msg {
+    padding: 10px 15px;
+    border-radius: 6px;
+    font-size: 0.95em;
+    line-height: 1.5;
+    max-width: 90%;
+    
+    /* --- FIX FÜR LAYOUT-SPRENGER --- */
+    word-wrap: break-word;      /* Basis-Umbruch */
+    word-break: break-all;      /* Zwingt "010101..." zum Umbruch */
+    overflow-wrap: anywhere;    /* Modernes CSS für Sicherheit */
+    white-space: pre-wrap;      /* Erhält Zeilenumbrüche, verhindert aber Overflow */
+          }
         }
 
         .msg.user {
