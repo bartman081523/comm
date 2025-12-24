@@ -1,0 +1,8 @@
+fastapi
+uvicorn
+numpy
+sympy
+torch
+jinja2
+ntplib
+websockets
