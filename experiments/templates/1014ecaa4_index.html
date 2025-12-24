@@ -108,31 +108,33 @@
             z-index: 5;
         }
 
-        #messages {
-            flex: 1;
-            overflow-y: auto;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-            scroll-behavior: smooth;
-            background: linear-gradient(180deg, rgba(0, 0, 0, 0.2) 0%, rgba(0, 0, 0, 0) 100%);
-        }
+        /* Container-Sicherung: Verhindert, dass der Chat breiter als der Bildschirm wird */
+#messages {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden !important; /* WICHTIG: Kappt alles, was zu breit ist */
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: 100%; /* Zwingt den Container auf Bildschirmbreite */
+    box-sizing: border-box;
+}
 
-        msg {
+/* Nachrichten-Fix: Erzwingt den Umbruch um jeden Preis */
+.msg {
     padding: 10px 15px;
     border-radius: 6px;
     font-size: 0.95em;
     line-height: 1.5;
-    max-width: 90%;
+    max-width: 90%; 
     
-    /* --- FIX FÜR LAYOUT-SPRENGER --- */
-    word-wrap: break-word;      /* Basis-Umbruch */
-    word-break: break-all;      /* Zwingt "010101..." zum Umbruch */
-    overflow-wrap: anywhere;    /* Modernes CSS für Sicherheit */
-    white-space: pre-wrap;      /* Erhält Zeilenumbrüche, verhindert aber Overflow */
-          }
-        }
+    /* DER HAMMER: */
+    overflow-wrap: anywhere !important;  /* Modernster Befehl für "überall brechen" */
+    word-break: break-all !important;    /* Bricht auch mitten im Wort/Zahl */
+    white-space: pre-wrap !important;    /* Erhält Formatierung, erlaubt aber Umbruch */
+    min-width: 0;                        /* Flexbox-Fix für Schrumpfen */
+}
 
         .msg.user {
             align-self: flex-end;
