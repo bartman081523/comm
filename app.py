@@ -319,6 +319,53 @@ async def websocket_endpoint(websocket: WebSocket):
     for task in pending:
         task.cancel()
 
+# --- NEU: EXPORT / IMPORT ENDPOINTS ---
+
+@app.get("/api/session/export")
+async def export_state():
+    """Gibt den kompletten aktuellen Zustand als JSON zurück."""
+    if not system.ready:
+        return {"error": "System not ready"}
+    
+    return {
+        'vocab': system.vocab.get_state(),
+        'sync': system.learner.get_state(),
+        'history': list(system.text_comm.messages),
+        'physics': system.holo.get_full_state(),
+        'timestamp': time.time()
+    }
+
+@app.post("/api/session/import")
+async def import_state(request: Request):
+    """Empfängt ein JSON und überschreibt den laufenden Zustand."""
+    try:
+        data = await request.json()
+        
+        # 1. State im RAM überschreiben
+        system.vocab = exp1014ecaa4.VocabularyLearner(data.get('vocab', {}))
+        system.learner = exp1014ecaa4.SynchronizationLearner(data.get('sync', {}))
+        
+        # Physics Restore
+        if 'physics' in data:
+            system.holo.restore_full_state(data['physics'])
+        
+        # History Restore
+        if 'history' in data:
+            system.text_comm.messages = exp1014ecaa4.deque(data['history'], maxlen=50)
+            
+        # 2. Speichern, damit es persistent bleibt
+        system.mgr.save_global_state(
+            system.vocab.get_state(),
+            system.learner.get_state(),
+            system.text_comm.messages,
+            physics_state=system.holo.get_full_state()
+        )
+        
+        return {"status": "ok", "message": "Session imported successfully"}
+    except Exception as e:
+        print(f"Import Error: {e}")
+        return {"status": "error", "message": str(e)}
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
