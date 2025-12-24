@@ -613,6 +613,72 @@
         function loadSession(id) { fetch(`/api/session/load/${id}`, { method: 'POST' }).then(r => r.json()).then(r => { if (r.status === 'ok') startWS(); }); }
         function newSession() { fetch(`/api/session/new`, { method: 'POST' }).then(r => r.json()).then(r => { if (r.status === 'ok') startWS(); }); }
 
+
+
+// --- EXPORT / IMPORT LOGIC ---
+
+function exportSession() {
+    // 1. Rufe Daten vom Server ab
+    fetch('/api/session/export')
+        .then(r => r.json())
+        .then(data => {
+            if(data.error) {
+                alert("Error: System not ready (Start a session first)");
+                return;
+            }
+            // 2. Erzeuge Download-Link im Browser
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(data, null, 2));
+            const downloadAnchorNode = document.createElement('a');
+            downloadAnchorNode.setAttribute("href", dataStr);
+            const date = new Date().toISOString().slice(0,19).replace(/:/g,"-");
+            downloadAnchorNode.setAttribute("download", "scimind_session_" + date + ".json");
+            document.body.appendChild(downloadAnchorNode); // required for firefox
+            downloadAnchorNode.click();
+            downloadAnchorNode.remove();
+        });
+}
+
+function importSession(input) {
+    const file = input.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const jsonContent = e.target.result;
+        try {
+            const data = JSON.parse(jsonContent);
+            
+            document.getElementById('import-status').innerText = "Uploading...";
+            
+            // 3. Sende JSON an Server
+            fetch('/api/session/import', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data)
+            })
+            .then(r => r.json())
+            .then(resp => {
+                if(resp.status === 'ok') {
+                    // 4. Bei Erfolg: Starte Websocket und blende Overlay aus
+                    document.getElementById('import-status').innerText = "Success!";
+                    startWS();
+                } else {
+                    alert("Import Error: " + resp.message);
+                }
+            });
+        } catch(err) {
+            alert("Invalid JSON File");
+        }
+    };
+    reader.readAsText(file);
+    // Reset input so same file can be selected again
+    input.value = '';
+}
+
+
+      
+
+      
         // --- WEBSOCKET ---
         function startWS() {
     document.getElementById('session-overlay').style.display = 'none';
