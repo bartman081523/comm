@@ -1,25 +1,25 @@
 @echo off
 setlocal
 
-:: --- KONFIGURATION ---
+:: --- CONFIGURATION ---
 set "MAMBA_DIR=_mamba"
 set "ENV_DIR=_venv"
 set "MAMBA_EXE=%MAMBA_DIR%\micromamba.exe"
 set "PYTHON_VER=3.10"
 
-:: --- 1. MICROMAMBA DOWNLOAD (Falls nicht vorhanden) ---
+:: --- 1. MICROMAMBA DOWNLOAD (If missing) ---
 if not exist "%MAMBA_EXE%" (
-    echo [INFO] Micromamba nicht gefunden. Lade herunter...
+    echo [INFO] Micromamba not found. Downloading...
     if not exist "%MAMBA_DIR%" mkdir "%MAMBA_DIR%"
     
-    :: Download der Windows-Version
+    :: Download Windows version
     curl -L -o "%MAMBA_DIR%\micromamba.tar.bz2" https://micro.mamba.pm/api/micromamba/win-64/latest
     
-    echo [INFO] Entpacke Micromamba...
-    :: Windows hat seit Win10 tar an Bord
+    echo [INFO] Unpacking Micromamba...
+    :: Windows 10+ has tar built-in
     tar -xf "%MAMBA_DIR%\micromamba.tar.bz2" -C "%MAMBA_DIR%"
     
-    :: Verschiebe die exe aus der tiefen Struktur nach oben
+    :: Move exe from deep structure to main folder
     if exist "%MAMBA_DIR%\Library\bin\micromamba.exe" (
         move /Y "%MAMBA_DIR%\Library\bin\micromamba.exe" "%MAMBA_DIR%\"
         rmdir /S /Q "%MAMBA_DIR%\Library"
@@ -27,32 +27,32 @@ if not exist "%MAMBA_EXE%" (
     del "%MAMBA_DIR%\micromamba.tar.bz2"
 )
 
-:: --- 2. ENVIRONMENT ERSTELLEN ---
+:: --- 2. CREATE ENVIRONMENT ---
 if not exist "%ENV_DIR%" (
-    echo [INFO] Erstelle lokales Environment in %ENV_DIR%...
+    echo [INFO] Creating local environment in %ENV_DIR%...
     call "%MAMBA_EXE%" create -p "%ENV_DIR%" python=%PYTHON_VER% -c conda-forge -y
 )
 
 :: --- 3. PYTORCH CUDA INSTALLATION ---
-echo [INFO] Installiere PyTorch mit CUDA Support...
-:: Wir nutzen pip im Environment. Wir holen die CUDA 12.1 Version explizit.
+echo [INFO] Installing PyTorch with CUDA support...
+:: We explicitly fetch the CUDA 12.1 version
 call "%MAMBA_EXE%" run -p "%ENV_DIR%" pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
 
-:: --- 4. REQUIREMENTS INSTALLIEREN ---
+:: --- 4. INSTALL REQUIREMENTS ---
 if exist "requirements.txt" (
-    echo [INFO] Installiere restliche Requirements...
+    echo [INFO] Installing remaining requirements...
     call "%MAMBA_EXE%" run -p "%ENV_DIR%" pip install -r requirements.txt
 )
 
-:: --- 5. STARTEN ---
+:: --- 5. LAUNCH ---
 echo.
-echo [START] Starte SciMind 2.0 (Lokal)...
+echo [START] Launching SciMind 2.0 (Local)...
 echo.
 
-:: Umgebungsvariable setzen, damit Session-Liste angezeigt wird
+:: Set env var to show session list locally
 set WEB_OR_LOCAL=local
 
-:: Start mit Websockets Unterstützung
+:: Start with Websocket support
 call "%MAMBA_EXE%" run -p "%ENV_DIR%" uvicorn app:app --host 0.0.0.0 --port 7860 --ws websockets --reload
 
 pause
