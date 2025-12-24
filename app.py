@@ -9,122 +9,107 @@ from fastapi import FastAPI, WebSocket, Request, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
-import torch
 
-# ==============================================================================
-# DYNAMIC IMPORT OF DEBUG CORE
-# ==============================================================================
+# Import core logic (Dynamic import for 1014e)
 import importlib.util
 import sys
 
-# Ziel-Modul: Das gepatchte Core-File
-CORE_MODULE_NAME = "1014ecca4_scimind2_core"
-file_path = os.path.join(os.path.dirname(__file__), f"{CORE_MODULE_NAME}.py")
+# Dynamic import because "1014" starts with a digit
+# Dynamic import because "1014" starts with a digit
+module_name = "exp1014ecaa4"
+file_path = os.path.join(os.path.dirname(__file__), "1014ecaa4_scimind2_communicator.py")
 
-if not os.path.exists(file_path):
-    print(f"CRITICAL ERROR: {file_path} not found. Please save the core file first!")
-    sys.exit(1)
+spec = importlib.util.spec_from_file_location(module_name, file_path)
+exp1014ecaa4 = importlib.util.module_from_spec(spec)
+sys.modules[module_name] = exp1014ecaa4
+spec.loader.exec_module(exp1014ecaa4)
 
-spec = importlib.util.spec_from_file_location(CORE_MODULE_NAME, file_path)
-core_module = importlib.util.module_from_spec(spec)
-sys.modules[CORE_MODULE_NAME] = core_module
-spec.loader.exec_module(core_module)
-
-print(f"[{CORE_MODULE_NAME}] successfully loaded.")
+# Also need torch for tensor handling
+try:
+    import torch
+except ImportError:
+    print("CRITICAL: torch required for SciMind 2.0 Backend")
 
 app = FastAPI()
-# Templates Verzeichnis anpassen falls nötig
+# We reuse templates from 1014
 templates = Jinja2Templates(directory="experiments/templates")
 
-# ==============================================================================
-# THROTTLED FORMULA ENGINE (CPU SAVER)
-# ==============================================================================
+# SymPy Symbols for Formula Generator
 psi_sym, phi_sym, alpha, omega = symbols('psi phi alpha omega', complex=True)
-t_sym, x_sym = symbols('t x', real=True)
-hbar, kB = symbols('hbar k_B', positive=True)
+t, x = symbols('t x', real=True)
+hbar, kB, c = symbols('hbar k_B c', positive=True)
 
-class ThrottledFormulaEngine:
-    """
-    Generates symbolic math BUT throttled to avoid CPU freeze.
-    Only runs nsimplify/latex every 1.0 seconds.
-    """
+class FormulaEngine:
+    """Generates symbolic math from quantum state patterns (Ported from Exp 1004)."""
     def __init__(self):
-        self.last_update = 0
-        self.cached_result = {
-            "latex": r"H = \int \Psi^\dagger \hat{H} \Psi dx", 
-            "text": "Initializing Field...", 
-            "desc": "System Boot"
-        }
+        self.history = []
         
     def generate(self, coherence, metrics):
-        now = time.time()
-        # RATE LIMIT: 1 Hz (prevents freeze)
-        if now - self.last_update < 1.0:
-            return self.cached_result
-            
-        self.last_update = now
-        
+        # Generate formula based on coherence regime
         try:
-            # Schnelle Approximation ohne nsimplify
-            a = round(float(coherence), 2)
-            vort = round(metrics.get('vorticity', 0), 2)
-            
-            formula = sp.Eq(psi_sym, 0)
-            desc = "Quantum Fluctuation"
-            
-            if coherence > 0.8:
-                formula = sp.Eq(psi_sym, a * exp(I * omega * t_sym))
-                desc = "Coherent Wave State"
-            elif coherence > 0.5:
-                # Energy
-                formula = sp.Eq(sp.Symbol('E'), a * hbar * omega)
-                desc = "Quantized Energy Flow"
-            elif vort > 2.0:
-                # Topologischer Modus
-                formula = sp.Integral(psi_sym * psi_sym.conjugate(), (x_sym, 0, vort))
-                desc = "Topological Defect"
-            else:
-                # Entropie
+            a = sp.nsimplify(float(coherence), tolerance=0.1)
+            b = sp.nsimplify(metrics.get('vorticity', 0) / 10.0, tolerance=0.1)
+        except:
+             a, b = 0.5, 0.5
+        
+        desc = "Quantum Fluctuation"
+        formula = sp.Eq(psi_sym, 0)
+        
+        if coherence > 0.8:
+            # Wave Function
+            formula = sp.Eq(psi_sym, a * exp(I * omega * t))
+            desc = "Coherent Wave State"
+        elif coherence > 0.5:
+            # Energy
+            formula = sp.Eq(sp.Symbol('E'), a * hbar * omega)
+            desc = "Quantized Energy Flow"
+        elif coherence > 0.2:
+            # Field Potentials
+            formula = sp.Eq(sp.Symbol('Phi'), a / (4 * sp.pi * x))
+            desc = "Field Potential"
+        else:
+            # Entropy
+            try:
+                p = max(0.001, float(a))
+                formula = sp.Eq(sp.Symbol('S'), -kB * p * log(p))
+                desc = "Entropic Fluctuations"
+            except:
                 formula = sp.Eq(sp.Symbol('S'), kB * log(2))
-                desc = "Entropic Background"
             
-            self.cached_result = {
-                "latex": sp.latex(formula),
-                "text": str(formula),
-                "desc": desc,
-                "timestamp": time.strftime("%H:%M:%S")
-            }
-        except Exception as e:
-            print(f"[FormulaEngine Error] {e}")
-            
-        return self.cached_result
+        return {
+            "latex": sp.latex(formula),
+            "text": str(formula),
+            "desc": desc,
+            "timestamp": time.strftime("%H:%M:%S")
+        }
 
-# ==============================================================================
-# WEB SYSTEM WRAPPER
-# ==============================================================================
+# State
 class WebSystem:
     def __init__(self):
-        self.mgr = core_module.SessionManager()
+        self.mgr = exp1014ecaa4.SessionManager()
         self.vocab = None
-        self.learner = None 
+        self.learner = None # Sync Learner
         self.decoder = None
-        self.noise = core_module.NoiseMultiplexer() # Threaded NTP inside
+        self.noise = exp1014ecaa4.NoiseMultiplexer()
         self.holo = None
         self.text_comm = None
         self.sync_config = None
         self.ready = False
-        self.formula_engine = ThrottledFormulaEngine()
+        self.formula_engine = FormulaEngine()
         
     def init_session(self, session_id=None):
         if session_id:
+            # Find path
             sessions = self.mgr.list_sessions()
             target = next((s for s in sessions if s['id'] == session_id), None)
             if target:
                 print(f"Loading session: {target['id']}")
                 state = self.mgr.load_session(target['path'])
+                self.mgr.session_id = target['id']
+                self.mgr.state_file = target['path']
+                self.mgr.log_file = os.path.join(self.mgr.log_dir, f"session_{target['id']}.log")
             else:
-                print("Session not found, creating new.")
-                state = self.mgr.start_new_session()
+                return False
         else:
             state = self.mgr.start_new_session()
             
@@ -132,25 +117,30 @@ class WebSystem:
         initial_sync = state.get('sync', {})
         initial_history = list(state.get('history', []))
         
-        # Initialize Core Components
-        self.vocab = core_module.VocabularyLearner(initial_vocab)
-        self.learner = core_module.SynchronizationLearner(initial_sync)
-        self.decoder = core_module.SemanticAdaptiveDecoder(self.vocab)
-        self.holo = core_module.SciMindCommunicator(N=40)
+        self.vocab = exp1014ecaa4.VocabularyLearner(initial_vocab)
+        self.learner = exp1014ecaa4.SynchronizationLearner(initial_sync)
+        
+        self.decoder = exp1014ecaa4.SemanticAdaptiveDecoder(self.vocab) # Use 1014ec Decoder
+        self.holo = exp1014ecaa4.SciMindCommunicator(N=40) # Use SciMind 2.0 Core
 
-        # Restore Physics
+        # RESTORE PHYSICS STATE (or Reconstruct)
         if 'physics' in state and state['physics']:
              self.holo.restore_full_state(state['physics'])
         elif initial_history:
-             # Quick reconstruction
-             print("Reconstructing physics from history...")
-             dummy_noise = np.random.rand(40*40).astype(np.float32)
-             for msg in initial_history[-5:]: # Only last 5 to save time
+             # RECONSTRUCTION MODE for Legacy Sessions
+             print("Legacy session detected. Reconstructing physics state from history...")
+             for msg in initial_history:
                  if msg['type'] == 'user':
-                     braid = self.holo.encode_text(msg['text'])
-                     self.holo.step(dummy_noise, braid, 0.0)
+                     # Re-imprint the text to the braid field
+                     # We assume a standard noise level for reconstruction to avoid divergence
+                     dummy_noise = np.random.rand(40*40)
+                     text_braid = self.holo.encode_text(msg['text'])
+                     # Run a few steps to let it settle
+                     for _ in range(5):
+                         self.holo.step(dummy_noise, text_braid * 1.0) # Nominal coupling
+             print("Reconstruction complete.")
         
-        self.text_comm = core_module.AdaptiveLoggingCommunicator(
+        self.text_comm = exp1014ecaa4.AdaptiveLoggingCommunicator(
             self.decoder, self.holo, self.vocab, self.mgr
         )
         if initial_history:
@@ -162,13 +152,10 @@ class WebSystem:
 
     def calculate_godel_gap(self):
         if not self.holo: return 0.0
+        # Simple approximation for now
         return float(self.holo.surprisal)
 
 system = WebSystem()
-
-# ==============================================================================
-# API ENDPOINTS
-# ==============================================================================
 
 @app.get("/api/sessions")
 async def list_sessions():
@@ -187,125 +174,114 @@ async def load_session(session_id: str):
 
 @app.get("/", response_class=HTMLResponse)
 async def get(request: Request):
-    # Reuse the template
+    # Reuse existing template, it's compatible enough
     return templates.TemplateResponse("1014ecaa4_index.html", {"request": request})
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
     
-    # Wait for ready state
-    retries = 0
+    # Wait for session init
     while not system.ready:
-        if retries > 50:
-            await websocket.close()
-            return
         await asyncio.sleep(0.1)
-        retries += 1
     
-    # Send History
+    # Send initial history
     history_msgs = [
         {"time": m['time'], "text": m['text'], "type": m['type'], "ci": m.get('ci', 0.0)}
         for m in system.text_comm.messages
     ]
     await websocket.send_json({"type": "history", "data": history_msgs})
     
-    # ------------------------------------------------------------------
-    # EMITTER LOOP (Physics & Metrics)
-    # ------------------------------------------------------------------
     async def _emit_state():
         while True:
-            try:
-                if not system.ready:
-                    await asyncio.sleep(1)
-                    continue
+            if not system.ready:
+                await asyncio.sleep(1)
+                continue
 
-                # 1. Get Noise & Stats
-                # system.noise is now the Threaded NoiseMultiplexer
+            try:
+                # 1. Physics Evolution (Continuous)
+                # Noise source
                 bg_noise = system.noise.get_blended_noise(size=40*40)
+                                
+                # Stats for Wick Rotation
                 stats = system.noise.get_source_stats()
                 base_ntp = stats.get('ntp_offset', 0.0)
-                
-                # 2. Prepare Inputs
                 off = system.sync_config['offset']
                 total_offset = base_ntp + off
+                
+                # Input Unitary (Braid Field)
+                # FIX: text_comm.last_text_unitary in 1014e is a Tensor (Braid Field)
+                current_braid = system.text_comm.last_text_unitary if system.text_comm else 0.0
                 coupling = system.sync_config['coupling']
-                
-                # Prepare Tensor for Text Braid
-                # Ensure it is a Tensor and on CPU
-                current_braid = system.text_comm.last_text_unitary
-                if not isinstance(current_braid, torch.Tensor):
-                    current_braid = torch.tensor(0.0, dtype=torch.float32)
 
-                # 3. PHYSICS STEP (High Frequency Logic)
-                # We do this in the async loop. If it's too slow, it blocks.
-                # But with our optimizations, it should be <10ms.
+                # STEP using SciMind 2.0 Logic (including ntp_offset for Wick Rotation)
+                # Note: SciMindCommunicator.step accepts braid field + ntp_offset
+                metrics_raw = system.holo.step(bg_noise, current_braid * coupling, ntp_offset=total_offset)
                 
-                # Only run step if we are not choking
-                system.holo.step(bg_noise, current_braid * coupling, ntp_offset=total_offset)
-                
-                # Decay Braid
+                # Decay the tensor signal (Memory Fade)
                 if isinstance(system.text_comm.last_text_unitary, torch.Tensor):
-                     system.text_comm.last_text_unitary *= 0.92
-
-                # 4. Gather Metrics
+                     system.text_comm.last_text_unitary *= 0.95
+                
+                # Attributes
+                coherence = float(system.holo.fidelity)
+                vorticity = float(system.holo.vorticity) # Chern Number
+                entropy_val = float(system.holo.surprisal)
+                ci = float(system.holo.causal_integrity)
+                phases = system.holo.phases.tolist() 
+                
+                # Advanced Metrics
+                godel_gap = system.calculate_godel_gap()
+                
                 metrics = {
-                    "causal_integrity": float(system.holo.causal_integrity),
-                    "vorticity": float(system.holo.vorticity),
-                    "coherence": float(system.holo.fidelity),
-                    "godel_gap": float(system.holo.surprisal),
-                    "entropy": float(system.holo.surprisal)
+                    "causal_integrity": ci,
+                    "vorticity": vorticity, # Chern
+                    "coherence": coherence,
+                    "godel_gap": godel_gap,
+                    "entropy": entropy_val
                 }
                 
-                phases = system.holo.phases.tolist()
-                maps = system.holo.get_maps()
-                
-                # 5. Generate Formula (Throttled)
-                formula_data = system.formula_engine.generate(metrics['coherence'], metrics)
+                # Generate Formula
+                formula_data = system.formula_engine.generate(coherence, metrics)
                 
                 vocab_stats = {
                     "total": len(system.vocab.user_words) if system.vocab else 0,
                     "top": system.vocab.get_top_terms(5) if system.vocab else []
                 }
                 
-                # 6. Send
+                # GET MAPS (Gating, Vorticity)
+                maps = system.holo.get_maps()
+                
                 await websocket.send_json({
                     "type": "state", 
                     "metrics": metrics, 
                     "phases": phases,
-                    "maps": maps,
+                    "maps": maps, # NEW: Send Maps
                     "vocab": vocab_stats,
                     "formula": formula_data,
                     "ntp_status": f"NTP: {base_ntp:+.4f}"
                 })
-                
-                # Target: 20 FPS -> 0.05s
-                await asyncio.sleep(0.05)
-                
-            except WebSocketDisconnect:
-                break
             except Exception as e:
-                print(f"Emit Error: {e}")
-                await asyncio.sleep(1.0) # Backoff on error
-
-    # ------------------------------------------------------------------
-    # RECEIVER LOOP (User Input)
-    # ------------------------------------------------------------------
+                # print(f"Broadcast Error: {e}")
+                pass
+                
+            await asyncio.sleep(0.05) # 20Hz update
+            
     async def _receive_messages():
         try:
             while True:
                 data = await websocket.receive_text()
                 msg = json.loads(data)
-                
                 if msg['type'] == 'message':
                     text = msg['text']
-                    if system.ready:
-                        # Process
+                    if system.ready and system.text_comm:
                         noise = system.noise.get_blended_noise(size=64)
-                        system.text_comm.process_message(text, noise)
                         
-                        # Sync Learning
+                        # Process message (Imprints Braid, Decodes Response)
+                        response_text = system.text_comm.process_message(text, noise)
+                        
+                        # Sync Learning Update
                         metrics = system.holo.get_metrics()
+                        
                         system.learner.record_trial(
                             system.sync_config['offset'], 
                             system.sync_config['coupling'], 
@@ -313,14 +289,13 @@ async def websocket_endpoint(websocket: WebSocket):
                         )
                         system.sync_config = system.learner.propose_next_config()
 
-                        # Echo Back Chat
                         new_msgs = list(system.text_comm.messages)[-2:] 
                         await websocket.send_json({
                             "type": "chat",
                             "data": new_msgs
                         })
                         
-                        # Auto Save (Throttle this if disk I/O is slow, but usually OK)
+                        # Auto Save
                         system.mgr.save_global_state(
                             system.vocab.get_state(),
                             system.learner.get_state(),
@@ -332,7 +307,7 @@ async def websocket_endpoint(websocket: WebSocket):
         except Exception as e:
             print(f"Receive Error: {e}")
 
-    # Launch tasks
+    # Run both loops
     emit_task = asyncio.create_task(_emit_state())
     receive_task = asyncio.create_task(_receive_messages())
     
@@ -346,5 +321,4 @@ async def websocket_endpoint(websocket: WebSocket):
 
 if __name__ == "__main__":
     import uvicorn
-    # Use 0.0.0.0 to be accessible
     uvicorn.run(app, host="0.0.0.0", port=8000)
