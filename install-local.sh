@@ -1,33 +1,33 @@
 #!/bin/bash
 
-# --- KONFIGURATION ---
+# --- CONFIGURATION ---
 MAMBA_DIR="_mamba"
 ENV_DIR="_venv"
 MAMBA_EXE="$MAMBA_DIR/micromamba"
 PYTHON_VER="3.10"
 
-# Fehler abfangen
+# Stop on error
 set -e
 
 # --- 1. MICROMAMBA DOWNLOAD ---
 if [ ! -f "$MAMBA_EXE" ]; then
-    echo "[INFO] Micromamba nicht gefunden. Lade herunter..."
+    echo "[INFO] Micromamba not found. Downloading..."
     mkdir -p "$MAMBA_DIR"
     
-    # Architektur erkennen
+    # Detect Architecture
     OS_TYPE=$(uname)
     if [ "$OS_TYPE" == "Darwin" ]; then
-        URL="https://micro.mamba.pm/api/micromamba/osx-64/latest" # Kein CUDA auf Mac
+        URL="https://micro.mamba.pm/api/micromamba/osx-64/latest" # No CUDA on Mac usually
     else
         URL="https://micro.mamba.pm/api/micromamba/linux-64/latest"
     fi
     
     curl -L -o "$MAMBA_DIR/micromamba.tar.bz2" "$URL"
     
-    echo "[INFO] Entpacke Micromamba..."
+    echo "[INFO] Unpacking Micromamba..."
     tar -xf "$MAMBA_DIR/micromamba.tar.bz2" -C "$MAMBA_DIR"
     
-    # Pfad anpassen (meistens liegt binary direkt in bin/)
+    # Adjust path (binary usually in bin/)
     if [ -f "$MAMBA_DIR/bin/micromamba" ]; then
         mv "$MAMBA_DIR/bin/micromamba" "$MAMBA_DIR/"
         rm -rf "$MAMBA_DIR/bin"
@@ -35,32 +35,31 @@ if [ ! -f "$MAMBA_EXE" ]; then
     rm "$MAMBA_DIR/micromamba.tar.bz2"
 fi
 
-# --- 2. ENVIRONMENT ERSTELLEN ---
+# --- 2. CREATE ENVIRONMENT ---
 if [ ! -d "$ENV_DIR" ]; then
-    echo "[INFO] Erstelle lokales Environment in $ENV_DIR..."
+    echo "[INFO] Creating local environment in $ENV_DIR..."
     ./$MAMBA_EXE create -p ./$ENV_DIR python=$PYTHON_VER -c conda-forge -y
 fi
 
-# --- 3. PYTORCH CUDA INSTALLATION ---
-echo "[INFO] Prüfe/Installiere PyTorch..."
-# Auf Linux installieren wir explizit CUDA Versionen via pip
-# Auf Mac (Darwin) nutzen wir Standard pip (MPS Support ist dort standard)
+# --- 3. PYTORCH INSTALLATION ---
+echo "[INFO] Checking/Installing PyTorch..."
 if [ "$(uname)" == "Darwin" ]; then
+    # Mac (MPS support is standard in pip)
     ./$MAMBA_EXE run -p ./$ENV_DIR pip install torch torchvision
 else
-    # Linux mit CUDA 12.1
+    # Linux with CUDA 12.1
     ./$MAMBA_EXE run -p ./$ENV_DIR pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
 fi
 
-# --- 4. REQUIREMENTS INSTALLIEREN ---
+# --- 4. INSTALL REQUIREMENTS ---
 if [ -f "requirements.txt" ]; then
-    echo "[INFO] Installiere restliche Requirements..."
+    echo "[INFO] Installing remaining requirements..."
     ./$MAMBA_EXE run -p ./$ENV_DIR pip install -r requirements.txt
 fi
 
-# --- 5. STARTEN ---
+# --- 5. LAUNCH ---
 echo ""
-echo "[START] Starte SciMind 2.0 (Lokal)..."
+echo "[START] Launching SciMind 2.0 (Local)..."
 echo ""
 
 export WEB_OR_LOCAL=local
