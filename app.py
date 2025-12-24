@@ -347,23 +347,43 @@ async def export_state():
 
 @app.post("/api/session/import")
 async def import_state(request: Request):
-    """Empfängt ein JSON und überschreibt den laufenden Zustand."""
+    """Empfängt ein JSON, initialisiert das System und überschreibt den Zustand."""
     try:
         data = await request.json()
         
-        # 1. State im RAM überschreiben
+        # 0. Session Manager vorbereiten (falls noch keine ID existiert)
+        if not system.mgr.session_id:
+             system.mgr.start_new_session()
+
+        # 1. Komponenten INITIALISIEREN (Wichtig: Auch wenn sie noch nicht existieren)
+        # Wir erstellen alles neu, um sicherzugehen, dass keine alten Datenreste stören.
         system.vocab = exp1014ecaa4.VocabularyLearner(data.get('vocab', {}))
         system.learner = exp1014ecaa4.SynchronizationLearner(data.get('sync', {}))
         
-        # Physics Restore
-        if 'physics' in data:
-            system.holo.restore_full_state(data['physics'])
+        system.decoder = exp1014ecaa4.SemanticAdaptiveDecoder(system.vocab)
         
-        # History Restore
+        # Physics Engine neu erstellen
+        system.holo = exp1014ecaa4.SciMindCommunicator(N=40)
+        
+        # 2. Physics State wiederherstellen
+        if 'physics' in data and data['physics']:
+            system.holo.restore_full_state(data['physics'])
+            
+        # 3. Text Communicator verbinden
+        system.text_comm = exp1014ecaa4.AdaptiveLoggingCommunicator(
+            system.decoder, system.holo, system.vocab, system.mgr
+        )
+        
+        # 4. Chat History wiederherstellen
         if 'history' in data:
+            # Konvertieren der Liste zurück in eine Deque
             system.text_comm.messages = exp1014ecaa4.deque(data['history'], maxlen=50)
             
-        # 2. Speichern, damit es persistent bleibt
+        # 5. System "Scharfschalten"
+        system.sync_config = system.learner.best_config
+        system.ready = True
+        
+        # 6. Sofort speichern (Auto-Save)
         system.mgr.save_global_state(
             system.vocab.get_state(),
             system.learner.get_state(),
@@ -374,7 +394,11 @@ async def import_state(request: Request):
         return {"status": "ok", "message": "Session imported successfully"}
     except Exception as e:
         print(f"Import Error: {e}")
+        # traceback für besseres Debugging in den Logs ausgeben
+        import traceback
+        traceback.print_exc()
         return {"status": "error", "message": str(e)}
+
 
 if __name__ == "__main__":
     import uvicorn
