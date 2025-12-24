@@ -1,0 +1,866 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, interactive-widget=resizes-content">
+    <title>TCI-1014 Unified Field Cockpit v2</title>
+    <style>
+        :root {
+            --bg: #050505;
+            --panel: #0b0c10;
+            --border: #333;
+            --accent: #00ffff;
+            --sys-text: #00ffaa;
+            --user-text: #ffffff;
+            --font-main: 'Courier New', monospace;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background: var(--bg);
+            color: #ddd;
+            font-family: var(--font-main);
+            height: 100dvh;
+            width: 100vw;
+            display: grid;
+            /* LAYOUT UPDATE: Viz (30%) | Chat (40%) | Data (30%) */
+            grid-template-columns: 30% 40% 30%;
+            grid-template-rows: 1fr;
+            overflow: hidden;
+            overscroll-behavior: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+        }
+
+        /* --- LEFT PANEL: VISUALIZER (Moved from Center) --- */
+        #viz-panel {
+            background: #000;
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+        }
+
+        #canvas-container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: #000 radial-gradient(circle, #111 0%, #000 80%);
+        }
+
+        canvas {
+            width: 100%;
+            max-width: 95%;
+            aspect-ratio: 1;
+            box-shadow: 0 0 30px rgba(0, 255, 170, 0.15);
+            border: 1px solid #222;
+        }
+
+        #mode-selector {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 5px;
+            z-index: 10;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 5px;
+            border-radius: 10px;
+            border: 1px solid #333;
+        }
+
+        .mode-btn {
+            background: #111;
+            border: 1px solid #444;
+            color: #888;
+            padding: 4px 10px;
+            cursor: pointer;
+            font-size: 0.7em;
+            border-radius: 5px;
+        }
+
+        .mode-btn.active {
+            border-color: var(--accent);
+            color: var(--accent);
+            background: rgba(0, 255, 255, 0.1);
+        }
+
+        /* --- CENTER PANEL: CHAT (Moved from Left) --- */
+        #chat-panel {
+            background: var(--panel);
+            border-right: 1px solid var(--border);
+            border-left: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            min-height: 0;
+            box-shadow: 0 0 50px rgba(0, 0, 0, 0.5);
+            z-index: 5;
+        }
+
+        #messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            scroll-behavior: smooth;
+            background: linear-gradient(180deg, rgba(0, 0, 0, 0.2) 0%, rgba(0, 0, 0, 0) 100%);
+        }
+
+        .msg {
+            padding: 10px 15px;
+            border-radius: 6px;
+            font-size: 0.95em;
+            line-height: 1.5;
+            max-width: 90%;
+            word-wrap: break-word;
+        }
+
+        .msg.user {
+            align-self: flex-end;
+            background: #222;
+            border-left: 3px solid var(--accent);
+            color: var(--user-text);
+            box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.3);
+        }
+
+        .msg.system {
+            align-self: flex-start;
+            background: #151a15;
+            border-left: 3px solid var(--sys-text);
+            color: var(--sys-text);
+            box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.3);
+        }
+
+        #input-area {
+            padding: 20px;
+            border-top: 1px solid var(--border);
+            background: #151515;
+            display: flex;
+            gap: 10px;
+            flex-shrink: 0;
+        }
+
+        input {
+            flex: 1;
+            background: #000;
+            border: 1px solid #444;
+            color: #fff;
+            padding: 12px;
+            font-family: inherit;
+            font-size: 1em;
+        }
+
+        button {
+            background: var(--accent);
+            color: #000;
+            border: none;
+            padding: 0 20px;
+            font-weight: bold;
+            cursor: pointer;
+            text-transform: uppercase;
+        }
+
+        /* --- RIGHT PANEL: DATA (Unchanged) --- */
+        #data-panel {
+            background: #080808;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            padding: 20px;
+            gap: 20px;
+            overflow-y: auto;
+        }
+
+        .panel-section {
+            border: 1px solid #222;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .panel-header {
+            color: #666;
+            font-size: 0.75em;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        #metrics-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .metric-box {
+            background: #111;
+            padding: 10px;
+            text-align: center;
+            border: 1px solid #222;
+        }
+
+        .metric-val {
+            font-size: 1.4em;
+            font-weight: bold;
+            color: var(--accent);
+            font-family: 'Arial', sans-serif;
+        }
+
+        .metric-label {
+            font-size: 0.6em;
+            color: #555;
+            margin-top: 5px;
+        }
+
+        #formula-log {
+            flex: 1;
+            background: #000;
+            border: 1px solid #333;
+            padding: 10px;
+            overflow-y: auto;
+            color: #ffcc00;
+            font-family: 'Times New Roman', serif;
+            font-style: italic;
+            min-height: 200px;
+        }
+
+        /* OVERLAY */
+        #session-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.92);
+            z-index: 999;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* MOBILE OPTIMIZATIONS */
+        @media (max-width: 900px) {
+            body {
+                grid-template-columns: 1fr;
+                /* Viz (ROW, smaller) | Chat (Maximize) | Data (Visible) */
+                grid-template-rows: 25dvh 1fr 20dvh;
+                height: 100vh;
+                /* Fallback */
+                height: 100dvh;
+                /* Dynamic Height */
+                overflow: hidden;
+            }
+
+            /* Hide Status Text */
+            #status-active {
+                display: none !important;
+            }
+
+            #viz-panel {
+                order: 1;
+                /* CHANGE: Row layout for side-buttons */
+                flex-direction: row;
+                align-items: stretch;
+                width: 100vw;
+                height: 100%;
+                max-height: none;
+                border-bottom: 2px solid var(--accent);
+                box-shadow: 0 10px 40px rgba(0, 255, 170, 0.1);
+                flex-shrink: 0;
+            }
+
+            #canvas-container {
+                padding: 0;
+                flex: 1;
+                /* Take remaining width */
+                min-width: 0;
+                height: 100%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+
+            canvas {
+                /* Square canvas fits in the container */
+                max-width: 95%;
+                max-height: 95%;
+                width: auto;
+                height: auto;
+                aspect-ratio: 1/1;
+            }
+
+            #mode-selector {
+                /* CHANGE: Sidebar Column */
+                position: static;
+                transform: none;
+                width: 60px;
+                height: 100%;
+                flex-direction: column;
+                justify-content: flex-start;
+                padding: 5px;
+                background: #080808;
+                border-right: 1px solid #333;
+                gap: 5px;
+                border-radius: 0;
+                border: none;
+                border-right: 1px solid var(--border);
+            }
+
+            .mode-btn {
+                padding: 0;
+                width: 100%;
+                height: 40px;
+                font-size: 0.65em;
+                margin: 0;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                word-break: break-all;
+                border-radius: 4px;
+            }
+
+            #chat-panel {
+                order: 2;
+                border: none;
+                height: 100%;
+                min-height: 0;
+                display: flex;
+                flex-direction: column;
+            }
+
+            #messages {
+                flex: 1 1 auto;
+                overflow-y: auto;
+                font-size: 0.9em;
+                padding: 10px;
+                min-height: 0;
+            }
+
+            #input-area {
+                padding: 8px;
+                flex-shrink: 0;
+            }
+
+            input {
+                padding: 12px;
+                font-size: 16px;
+                border-radius: 4px;
+            }
+
+            button[type="submit"] {
+                padding: 0 15px;
+            }
+
+            #data-panel {
+                order: 3;
+                border-top: 1px solid var(--border);
+                padding: 2px;
+                background: #000;
+                z-index: 20;
+                font-size: 0.7em;
+                /* Smaller font */
+                /* CHANGE: Split Layout */
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 2px;
+                overflow-y: auto;
+                /* Allow scrolling if huge */
+                /* Safe Area for Home Bar */
+                padding-bottom: env(safe-area-inset-bottom) !important;
+            }
+
+            /* Keyboard Handling Removed */
+
+            /* Left: Metrics Grid */
+            .panel-section:nth-of-type(1) {
+                grid-column: 1;
+                display: flex;
+                flex-direction: column;
+                border: none;
+                padding: 0;
+                background: transparent;
+                height: 100%;
+            }
+
+            .active-title {
+                display: none;
+            }
+
+            /* Hide title to save space? */
+
+            #metrics-grid {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                grid-template-rows: 1fr 1fr;
+                gap: 2px;
+                height: 100%;
+            }
+
+            .metric-box {
+                padding: 2px;
+                display: flex;
+                flex-direction: column;
+                justify-content: space-between;
+                position: relative;
+                min-height: 0;
+                overflow: hidden;
+                border: 1px solid #222;
+            }
+
+            .sparkline {
+                position: absolute;
+                bottom: 0;
+                left: 0;
+                width: 100%;
+                /* Update: Full height to "center" visually */
+                height: 100%;
+                opacity: 0.3;
+                pointer-events: none;
+            }
+
+            .metric-val {
+                font-size: 0.9em;
+                position: relative;
+                z-index: 2;
+            }
+
+            .metric-label {
+                font-size: 0.5em;
+                position: relative;
+                z-index: 2;
+            }
+
+            /* Right: Formula Stream */
+            .panel-section:nth-of-type(2) {
+                grid-column: 2;
+                display: flex;
+                flex-direction: column;
+                border: none;
+                padding: 0;
+                border-left: 1px solid #222;
+                padding-left: 4px;
+                background: transparent;
+                height: 100%;
+                min-height: 0;
+            }
+
+            .panel-header {
+                font-size: 0.6em;
+                margin-bottom: 2px;
+            }
+
+            #formula-log {
+                flex: 1;
+                min-height: 0;
+                border: none;
+                padding: 0;
+                overflow-y: auto;
+            }
+
+            #formula-log div {
+                font-size: 0.8em !important;
+                margin-bottom: 4px !important;
+                padding-bottom: 4px !important;
+            }
+
+            /* Hide Lexicon on mobile for now */
+            .panel-section:nth-of-type(3) {
+                display: none;
+            }
+        }
+    </style>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+</head>
+
+<body>
+
+    <!-- LEFT: VISUALIZER (New Location) -->
+    <!-- LEFT: VISUALIZER (New Location) -->
+    <div id="viz-panel">
+        <div id="mode-selector">
+            <button class="mode-btn active" onclick="setMode(0)">VORTEX</button>
+            <button class="mode-btn" onclick="setMode(1)">INDRA</button>
+            <button class="mode-btn" onclick="setMode(2)">HOFSTADTER</button>
+            <button class="mode-btn" onclick="setMode(3)">GÖDEL</button>
+        </div>
+        <div id="canvas-container">
+            <canvas id="holoCanvas" width="400" height="400"></canvas>
+        </div>
+    </div>
+
+    <!-- CENTER: CHAT (New Location) -->
+    <div id="chat-panel">
+        <div id="status-active"
+            style="padding:15px; border-bottom:1px solid #333; font-size:0.8em; color:#666; text-transform:uppercase; letter-spacing:1px; text-align:center;">
+            Quantum Link Active
+        </div>
+        <div id="messages"></div>
+        <form id="input-area">
+            <input type="text" id="msg-input" placeholder="Enter signal..." autocomplete="off">
+            <button type="submit">TX</button>
+        </form>
+    </div>
+
+    <!-- RIGHT: DATA -->
+    <div id="data-panel">
+        <div class="panel-section">
+            <!-- Headers are often hidden in mobile CSS but kept for desktop -->
+            <div class="panel-header active-title">Field Metrics</div>
+            <div id="metrics-grid">
+                <div class="metric-box">
+                    <canvas id="spark-ci" class="sparkline"></canvas>
+                    <div class="metric-val" id="val-ci">--</div>
+                    <div class="metric-label">INTEGRITY</div>
+                </div>
+                <div class="metric-box">
+                    <canvas id="spark-ent" class="sparkline"></canvas>
+                    <div class="metric-val" id="val-ent" style="color:#ff5555">--</div>
+                    <div class="metric-label">ENTROPY</div>
+                </div>
+                <div class="metric-box">
+                    <canvas id="spark-godel" class="sparkline"></canvas>
+                    <div class="metric-val" id="val-godel">--</div>
+                    <div class="metric-label">GÖDEL GAP</div>
+                </div>
+                <div class="metric-box">
+                    <canvas id="spark-vort" class="sparkline"></canvas>
+                    <div class="metric-val" id="val-vort">--</div>
+                    <div class="metric-label">VORTICITY</div>
+                </div>
+            </div>
+        </div>
+        <div class="panel-section">
+            <div class="panel-header">Formula Stream</div>
+            <div id="formula-log">
+                <div style="opacity:0.5; font-size:0.8em;">Waiting for coherence event...</div>
+            </div>
+        </div>
+        <div class="panel-section">
+            <div class="panel-header">Lexicon</div>
+            <div id="vocab-display" style="font-size:0.8em; color:#888; word-wrap:break-word;"></div>
+        </div>
+    </div>
+
+    <!-- OVERLAY -->
+    <div id="session-overlay">
+        <h1 style="color:var(--accent); text-transform:uppercase; letter-spacing:4px; margin-bottom: 30px;">System
+            Initialization</h1>
+        <div id="session-list"
+            style="width: 80%; max-width:400px; max-height:40vh; overflow-y:auto; border:1px solid #444; margin-bottom:20px; background:#111;">
+        </div>
+        <button onclick="newSession()"
+            style="padding:15px 40px; font-size:1em; letter-spacing:2px; border:1px solid var(--accent);">NEW
+            SESSION</button>
+    </div>
+
+    <script>
+        let ws;
+        let mode = 0;
+        let gatingMap = new Float32Array(40 * 40);
+        let vorticityMap = new Float32Array(40 * 40);
+
+        // --- SESSION LOGIC ---
+        function fetchSessions() {
+            fetch('/api/sessions').then(r => r.json()).then(sessions => {
+                const list = document.getElementById('session-list');
+                list.innerHTML = '';
+                sessions.forEach(s => {
+                    const d = document.createElement('div');
+                    d.style.padding = '15px'; d.style.borderBottom = '1px solid #333';
+                    d.style.cursor = 'pointer'; d.style.color = '#ccc';
+                    d.innerHTML = `<span style="color:var(--accent)">${s.label}</span><br><small>${s.id}</small>`;
+                    d.onmouseover = () => d.style.background = '#222';
+                    d.onmouseout = () => d.style.background = 'transparent';
+                    d.onclick = () => loadSession(s.id);
+                    list.appendChild(d);
+                });
+            });
+        }
+        window.onload = fetchSessions;
+        function loadSession(id) { fetch(`/api/session/load/${id}`, { method: 'POST' }).then(r => r.json()).then(r => { if (r.status === 'ok') startWS(); }); }
+        function newSession() { fetch(`/api/session/new`, { method: 'POST' }).then(r => r.json()).then(r => { if (r.status === 'ok') startWS(); }); }
+
+        // --- WEBSOCKET ---
+        function startWS() {
+            document.getElementById('session-overlay').style.display = 'none';
+            ws = new WebSocket(`ws://${location.host}/ws`);
+            ws.onmessage = (e) => {
+                const msg = JSON.parse(e.data);
+                if (msg.type === 'state') updateState(msg);
+                else if (['chat', 'history'].includes(msg.type)) msg.data.forEach(addMsg);
+            };
+        }
+
+        function setMode(m) {
+            mode = m;
+            document.querySelectorAll('.mode-btn').forEach((b, i) => {
+                b.classList.toggle('active', i === m);
+            });
+        }
+
+        // --- APP LOGIC ---
+        const historyLen = 50;
+        const metricsHistory = { ci: new Array(historyLen).fill(0), ent: new Array(historyLen).fill(0), godel: new Array(historyLen).fill(0), vort: new Array(historyLen).fill(0) };
+
+        function updateState(s) {
+            window.currentMetrics = s.metrics;
+
+            // Parse Maps
+            if (s.maps) {
+                // Flatten 40x40 arrays
+                // Assume server sends list of lists
+                // We flatten them to Float32Array for texture
+                if (s.maps.gating) gatingMap = new Float32Array(s.maps.gating.flat());
+                if (s.maps.vorticity) vorticityMap = new Float32Array(s.maps.vorticity.flat());
+            }
+
+            // Update DOM metrics
+            ['ci', 'ent', 'godel', 'vort'].forEach(k => {
+                const key = k === 'ci' ? 'causal_integrity' : k === 'ent' ? 'entropy' : k === 'godel' ? 'godel_gap' : 'vorticity';
+                const val = s.metrics[key];
+                document.getElementById(`val-${k}`).innerText = val.toFixed(3);
+                metricsHistory[k].shift(); metricsHistory[k].push(val);
+                drawSparkline(`spark-${k}`, metricsHistory[k], k === 'ent' ? '#ff5555' : k === 'godel' ? '#ffff00' : '#00ffff');
+            });
+
+            if (s.phases) {
+                // Prepare Noise / Phase data
+                // We use phase as R channel
+                const phaseData = s.phases.flat();
+                window.currentPhaseData = phaseData;
+            }
+
+            if (s.formula) logFormula(s.formula);
+            document.getElementById('vocab-display').innerText = (s.vocab.top || []).join(", ");
+        }
+
+        function drawSparkline(id, data, color) {
+            const c = document.getElementById(id); if (!c) return;
+            const ctx = c.getContext('2d');
+            c.width = c.offsetWidth; c.height = c.offsetHeight;
+            ctx.clearRect(0, 0, c.width, c.height);
+            if (data.length < 2) return;
+            let min = Math.min(...data), max = Math.max(...data);
+            if (max === min) { min -= 0.1; max += 0.1; }
+            ctx.beginPath();
+            ctx.strokeStyle = color; ctx.lineWidth = 2;
+            for (let i = 0; i < data.length; i++) {
+                let x = i / (data.length - 1) * c.width;
+                let y = c.height - (data[i] - min) / (max - min) * c.height;
+                if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+        }
+
+        const msgsDiv = document.getElementById('messages');
+        function addMsg(m) {
+            const d = document.createElement('div');
+            d.className = `msg ${m.type}`;
+            d.innerHTML = `<strong>${m.type === 'user' ? 'USR' : 'SYS'}</strong> [${m.time}]<br>${m.text}`;
+            if (m.ci) d.innerHTML += `<br><small style="opacity:0.6">CI: ${m.ci.toFixed(2)}</small>`;
+            msgsDiv.appendChild(d);
+            msgsDiv.scrollTop = msgsDiv.scrollHeight;
+        }
+
+        document.getElementById('input-area').onsubmit = (e) => {
+            e.preventDefault();
+            const i = document.getElementById('msg-input');
+            if (i.value.trim()) {
+                ws.send(JSON.stringify({ type: 'message', text: i.value }));
+                i.value = '';
+            }
+        };
+
+        function logFormula(f) {
+            const d = document.getElementById('formula-log');
+            const el = document.createElement('div');
+            el.innerHTML = `<span style="color:#aaa">[${f.timestamp}]</span> ${f.desc}<br><span style="color:var(--accent)">$$${f.text}$$</span>`;
+            el.style.borderBottom = '1px solid #222'; el.style.padding = '5px 0';
+            d.prepend(el);
+            if (d.children.length > 20) d.lastChild.remove();
+            MathJax.typesetPromise([el]);
+        }
+
+        // =============================================================================
+        // WEBGL 2.0 ADVANCED VISUALIZER
+        // =============================================================================
+        const gl = document.getElementById('holoCanvas').getContext('webgl2');
+        if (!gl) alert("WebGL 2 Required");
+
+        // Vertex Shader
+        const vs = `#version 300 es
+        in vec2 pos; out vec2 uv;
+        void main() { uv = pos*0.5+0.5; gl_Position=vec4(pos,0,1); }`;
+
+        // Fragment Shader WITH VORTICITY & GATING MAPS
+        const fs = `#version 300 es
+        precision highp float;
+        in vec2 uv; out vec4 color;
+        
+        uniform float time;
+        uniform sampler2D uPhase;     // R channel = Phase
+        uniform sampler2D uGating;    // R channel = Gating (Focus)
+        uniform sampler2D uVorticity; // R channel = Vorticity (Charge)
+        uniform int uMode; // 0=VORTEX, 1=INDRA, 2=HOFSTADTER, 3=GODEL
+
+        #define PI 3.14159265
+        #define TAU 6.2831853
+
+        vec3 hsv2rgb(vec3 c) {
+            vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
+            vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
+            return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
+        }
+
+        void main() {
+            // Read textures
+            // UV is [0,1], texture is 40x40, nearest neighbor is good for discrete grid
+            float phase = texture(uPhase, uv).r; 
+            float gating = texture(uGating, uv).r;
+            float vort = texture(uVorticity, uv).r;
+
+            vec3 col = vec3(0.0);
+
+            if (uMode == 0) {
+                // VORTEX MODE (Strange Loop)
+                // Color by Phase (Rainbow), Brightness by Gating (Heatmap)
+                // Overlay Vorticity as Dots
+                
+                // 1. Base Phase Color (Rainbow)
+                // Map phase [0, 2PI] roughly to Hue
+                float hue = phase / TAU;
+                col = hsv2rgb(vec3(hue, 1.0, 1.0));
+                
+                // 2. Gating Heatmap (Darken quiet zones)
+                // High gating = High Focus = Bright
+                col *= (0.2 + 0.8 * gating);
+
+                // 3. Vorticity Overlay (Red/Blue dots) (Point 3)
+                // If vorticity is significant (> 0.3), draw a dot
+                if (abs(vort) > 0.3) {
+                    vec2 grid_uv = uv * 40.0; // Scale UV to grid coordinates
+                    vec2 cell_center = floor(grid_uv) + 0.5; // Center of the current cell
+                    float dist = length(grid_uv - cell_center); // Distance from cell center
+                    
+                    // Draw a dot if within a certain radius of the cell center
+                    if (dist < 0.4) { // Adjust radius as needed
+                        vec3 vCol = (vort > 0.0) ? vec3(1.0, 0.0, 0.0) : vec3(0.0, 0.5, 1.0);
+                        col = mix(col, vCol, 0.8); // Blend with existing color
+                    }
+                }
+            }
+            else if (uMode == 1) {
+                // INDRA'S NET (Fractal Jewels)
+                // Uses Gating to reflect
+                vec2 p = uv * 2.0 - 1.0;
+                float r = length(p);
+                float a = atan(p.y, p.x);
+                float f = cos(a * 12.0 + time) * sin(r * 10.0 - time);
+                
+                // Jewel sparkle based on gating
+                float sparkle = gating * smoothstep(0.4, 0.5, abs(f));
+                col = vec3(0.1, 0.0, 0.2) + vec3(0.8, 0.6, 1.0) * sparkle;
+                col += hsv2rgb(vec3(phase/TAU, 0.5, 0.5)) * 0.3;
+            } 
+            else if (uMode == 2) {
+                // HOFSTADTER BUTTERFLY (Energy Bands)
+                // Visualizing the quantized flux zones
+                float flux = vort * 20.0; // Scale up
+                float band = sin(flux * 3.14 + phase);
+                col = vec3(band * 0.5 + 0.5, 0.0, 1.0 - band*0.5);
+                col *= gating;
+            }
+            else if (uMode == 3) {
+                // GODEL NEBULA (Uncertainty)
+                // Show areas of high Entropy/Unrest (Low Gating)
+                // Low Gating = Fog
+                float fog = 1.0 - gating; 
+                
+                // Animated fog
+                float n = sin(uv.x*10.0 + time) * cos(uv.y*10.0 - time);
+                
+                col = vec3(0.1) + vec3(0.5, 0.5, 0.5) * fog * n;
+                // Add flashes of insight (phase)
+                if (gating > 0.8) col += vec3(1.0, 1.0, 0.0) * 0.5;
+            }
+
+            color = vec4(col, 1.0);
+        }`;
+
+        // Setup GL
+        const p = gl.createProgram();
+        const vsS = gl.createShader(gl.VERTEX_SHADER); gl.shaderSource(vsS, vs); gl.compileShader(vsS);
+        const fsS = gl.createShader(gl.FRAGMENT_SHADER); gl.shaderSource(fsS, fs); gl.compileShader(fsS);
+        if (!gl.getShaderParameter(fsS, gl.COMPILE_STATUS)) console.error(gl.getShaderInfoLog(fsS));
+        gl.attachShader(p, vsS); gl.attachShader(p, fsS); gl.linkProgram(p); gl.useProgram(p);
+
+        // Quad
+        const b = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+        const l = gl.getAttribLocation(p, 'pos'); gl.enableVertexAttribArray(l); gl.vertexAttribPointer(l, 2, gl.FLOAT, false, 0, 0);
+
+        // Textures
+        function createTex(unit) {
+            const t = gl.createTexture();
+            gl.activeTexture(gl.TEXTURE0 + unit);
+            gl.bindTexture(gl.TEXTURE_2D, t);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+            return t;
+        }
+
+        const tPhase = createTex(0);
+        const tGating = createTex(1);
+        const tVort = createTex(2);
+
+        gl.uniform1i(gl.getUniformLocation(p, "uPhase"), 0);
+        gl.uniform1i(gl.getUniformLocation(p, "uGating"), 1);
+        gl.uniform1i(gl.getUniformLocation(p, "uVorticity"), 2);
+
+        const locTime = gl.getUniformLocation(p, 'time');
+        const locMode = gl.getUniformLocation(p, 'uMode');
+
+        function render() {
+            gl.uniform1f(locTime, performance.now() / 1000);
+            gl.uniform1i(locMode, mode);
+
+            if (window.currentPhaseData) {
+                gl.activeTexture(gl.TEXTURE0);
+                gl.texImage2D(gl.TEXTURE_2D, 0, gl.R32F, 40, 40, 0, gl.RED, gl.FLOAT, new Float32Array(window.currentPhaseData));
+
+                gl.activeTexture(gl.TEXTURE1);
+                gl.texImage2D(gl.TEXTURE_2D, 0, gl.R32F, 40, 40, 0, gl.RED, gl.FLOAT, gatingMap);
+
+                gl.activeTexture(gl.TEXTURE2);
+                gl.texImage2D(gl.TEXTURE_2D, 0, gl.R32F, 40, 40, 0, gl.RED, gl.FLOAT, vorticityMap);
+            }
+
+            gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+            requestAnimationFrame(render);
+        }
+        render();
+
+    </script>
+    <script>
+        // MOBILE KEYBOARD HANDLING (Safe Script Block)
+        // MOBILE KEYBOARD HANDLING REMOVED per user request
+    </script>
+</body>
+
+</html>
