@@ -159,8 +159,18 @@ system = WebSystem()
 
 @app.get("/api/sessions")
 async def list_sessions():
+    # Prüfen, ob wir im Web-Modus (Hugging Face) oder Lokal sind
+    # Standard ist 'local', wenn die Variable fehlt (beim lokalen Klonen)
+    mode = os.environ.get("WEB_OR_LOCAL", "local").lower()
+    
+    if mode == "web":
+        # Im Web-Modus geben wir eine leere Liste zurück.
+        # Das Frontend zeigt dann keine Sessions an, nur die Buttons.
+        return []
+    
+    # Im lokalen Modus geben wir die echte Liste zurück
     return system.mgr.list_sessions()
-
+    
 @app.post("/api/session/new")
 async def new_session():
     system.init_session(None)
