@@ -87,6 +87,7 @@ class FormulaEngine:
 class WebSystem:
     def __init__(self):
         self.mgr = exp1014ecaa4.SessionManager()
+        self.tick_delay = exp1014ecaa4.AutoPerformanceTuner.tune(N=40)
         self.vocab = None
         self.learner = None # Sync Learner
         self.decoder = None
