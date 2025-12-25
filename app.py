@@ -204,77 +204,98 @@ async def websocket_endpoint(websocket: WebSocket):
     await websocket.send_json({"type": "history", "data": history_msgs})
     
     async def _emit_state():
+        # --- ADAPTIVE NETWORK THROTTLE ---
+        # Startwert: Konservativ (2 FPS)
+        current_broadcast_interval = 0.5
+        last_broadcast_time = 0
+        
         while True:
             if not system.ready:
                 await asyncio.sleep(system.tick_delay)
                 continue
 
             try:
-                # 1. Physics Evolution (Continuous)
-                # Noise source
+                # 1. PHYSIK SCHRITT (Hochfrequent, läuft immer)
+                # ---------------------------------------------
                 bg_noise = system.noise.get_blended_noise(size=40*40)
-                                
-                # Stats for Wick Rotation
                 stats = system.noise.get_source_stats()
                 base_ntp = stats.get('ntp_offset', 0.0)
                 off = system.sync_config['offset']
                 total_offset = base_ntp + off
                 
-                # Input Unitary (Braid Field)
-                # FIX: text_comm.last_text_unitary in 1014e is a Tensor (Braid Field)
                 current_braid = system.text_comm.last_text_unitary if system.text_comm else 0.0
                 coupling = system.sync_config['coupling']
 
-                # STEP using SciMind 2.0 Logic (including ntp_offset for Wick Rotation)
-                # Note: SciMindCommunicator.step accepts braid field + ntp_offset
-                metrics_raw = system.holo.step(bg_noise, current_braid * coupling, ntp_offset=total_offset)
+                system.holo.step(bg_noise, current_braid * coupling, ntp_offset=total_offset)
                 
-                # Decay the tensor signal (Memory Fade)
                 if isinstance(system.text_comm.last_text_unitary, torch.Tensor):
                      system.text_comm.last_text_unitary *= 0.95
                 
-                # Attributes
-                coherence = float(system.holo.fidelity)
-                vorticity = float(system.holo.vorticity) # Chern Number
-                entropy_val = float(system.holo.surprisal)
-                ci = float(system.holo.causal_integrity)
-                phases = system.holo.phases.tolist() 
+                # 2. NETZWERK SCHRITT (Adaptiv)
+                # -----------------------------
+                now = time.time()
                 
-                # Advanced Metrics
-                godel_gap = system.calculate_godel_gap()
-                
-                metrics = {
-                    "causal_integrity": ci,
-                    "vorticity": vorticity, # Chern
-                    "coherence": coherence,
-                    "godel_gap": godel_gap,
-                    "entropy": entropy_val
-                }
-                
-                # Generate Formula
-                formula_data = system.formula_engine.generate(coherence, metrics)
-                
-                vocab_stats = {
-                    "total": len(system.vocab.user_words) if system.vocab else 0,
-                    "top": system.vocab.get_top_terms(5) if system.vocab else []
-                }
-                
-                # GET MAPS (Gating, Vorticity)
-                maps = system.holo.get_maps()
-                
-                await websocket.send_json({
-                    "type": "state", 
-                    "metrics": metrics, 
-                    "phases": phases,
-                    "maps": maps, # NEW: Send Maps
-                    "vocab": vocab_stats,
-                    "formula": formula_data,
-                    "ntp_status": f"NTP: {base_ntp:+.4f}"
-                })
+                # Prüfen, ob wir wieder senden dürfen
+                if now - last_broadcast_time > current_broadcast_interval:
+                    
+                    # MESSUNG STARTEN
+                    send_start_time = time.time()
+                    
+                    # --- Daten vorbereiten (Teuer!) ---
+                    metrics_raw = system.holo.get_metrics()
+                    phases = system.holo.phases.tolist() 
+                    maps = system.holo.get_maps()
+                    
+                    metrics = {
+                        "causal_integrity": float(metrics_raw['causal_integrity']),
+                        "vorticity": float(metrics_raw['vorticity']),
+                        "coherence": float(metrics_raw['fidelity']),
+                        "godel_gap": system.calculate_godel_gap(),
+                        "entropy": float(metrics_raw['surprisal'])
+                    }
+                    
+                    formula_data = system.formula_engine.generate(metrics['coherence'], metrics)
+                    vocab_stats = {
+                        "total": len(system.vocab.user_words) if system.vocab else 0,
+                        "top": system.vocab.get_top_terms(5) if system.vocab else []
+                    }
+                    
+                    # --- Senden (Kann blockieren!) ---
+                    await websocket.send_json({
+                        "type": "state", 
+                        "metrics": metrics, 
+                        "phases": phases,
+                        "maps": maps,
+                        "vocab": vocab_stats,
+                        "formula": formula_data,
+                        "ntp_status": f"NTP: {base_ntp:+.4f}"
+                    })
+                    
+                    last_broadcast_time = time.time()
+                    
+                    # MESSUNG BEENDET
+                    send_duration = last_broadcast_time - send_start_time
+                    
+                    # --- DYNAMISCHE ANPASSUNG ---
+                    # Regel: Das Senden soll maximal 20% der Zeit beanspruchen.
+                    # Wenn Senden 0.1s dauert, warten wir 0.5s Pause.
+                    # Wenn Senden 0.01s dauert, warten wir nur 0.05s Pause.
+                    
+                    target_interval = send_duration * 5.0
+                    
+                    # Clamping:
+                    # Nicht schneller als 10 FPS (0.1s)
+                    # Nicht langsamer als 0.5 FPS (2.0s) - damit man nicht denkt es sei abgestürzt
+                    current_broadcast_interval = max(0.1, min(target_interval, 2.0))
+                    
+                    # Optional: Debugging im Log (kannst du auskommentieren)
+                    # print(f"Net Load: {send_duration:.3f}s -> New Interval: {current_broadcast_interval:.3f}s")
+
             except Exception as e:
-                # print(f"Broadcast Error: {e}")
+                # print(f"Emit Error: {e}")
                 pass
                 
+            # Schlafen basierend auf Physik-Tuner (z.B. 30 FPS)
             await asyncio.sleep(system.tick_delay)
             
     async def _receive_messages():
@@ -286,13 +307,9 @@ async def websocket_endpoint(websocket: WebSocket):
                     text = msg['text']
                     if system.ready and system.text_comm:
                         noise = system.noise.get_blended_noise(size=64)
-                        
-                        # Process message (Imprints Braid, Decodes Response)
                         response_text = system.text_comm.process_message(text, noise)
                         
-                        # Sync Learning Update
                         metrics = system.holo.get_metrics()
-                        
                         system.learner.record_trial(
                             system.sync_config['offset'], 
                             system.sync_config['coupling'], 
@@ -306,7 +323,6 @@ async def websocket_endpoint(websocket: WebSocket):
                             "data": new_msgs
                         })
                         
-                        # Auto Save
                         system.mgr.save_global_state(
                             system.vocab.get_state(),
                             system.learner.get_state(),
@@ -316,9 +332,8 @@ async def websocket_endpoint(websocket: WebSocket):
         except WebSocketDisconnect:
             pass
         except Exception as e:
-            print(f"Receive Error: {e}")
+            pass
 
-    # Run both loops
     emit_task = asyncio.create_task(_emit_state())
     receive_task = asyncio.create_task(_receive_messages())
     
