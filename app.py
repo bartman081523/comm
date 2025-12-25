@@ -209,33 +209,37 @@ async def websocket_endpoint(websocket: WebSocket):
         last_broadcast_time = 0
         
         # --- PHYSICS TIMEKEEPING ---
-        # Wir merken uns, wann der letzte Physik-Schritt simuliert wurde
         last_physics_update_time = time.time()
+        target_dt = system.tick_delay 
         
-        # Das Ziel: Ein Physik-Schritt entspricht genau dieser Zeitspanne in der Realität
-        target_dt = system.tick_delay # z.B. 0.033s (30 FPS) oder 0.05s (20 FPS)
+        # Merker, ob wir gerade pausiert waren
+        was_paused = False
         
         while True:
+            # 1. PAUSE CHECK
             if not system.ready:
                 await asyncio.sleep(0.1)
+                was_paused = True
                 continue
+            
+            # 2. AUFWACH-RESET (Wichtig für Import!)
+            if was_paused:
+                # Wir waren pausiert (z.B. Import). 
+                # Resetten wir die Zeit, damit wir nicht versuchen, 
+                # die Import-Dauer als "Lag" nachzuholen.
+                last_physics_update_time = time.time()
+                was_paused = False
 
             try:
-                # --- 1. CATCH-UP LOGIC (Das behebt die Zeitlupe) ---
-                # Wie viel Zeit ist in der echten Welt vergangen?
+                # --- 3. CATCH-UP LOGIC ---
                 now = time.time()
                 real_time_passed = now - last_physics_update_time
-                
-                # Wie viele Schritte hätten wir machen müssen?
                 steps_to_catch_up = int(real_time_passed / target_dt)
                 
-                # Sicherheits-Limit: Nicht mehr als 20 Schritte auf einmal nachholen,
-                # sonst hängt die CPU bei Lag ewig fest (Death Spiral).
+                # Limit: Max 20 Schritte aufholen
                 steps_to_catch_up = min(steps_to_catch_up, 20)
                 
                 if steps_to_catch_up > 0:
-                    # Wir holen die verpasste Zeit nach!
-                    # Bereite Inputs vor (bleiben für den Burst gleich)
                     bg_noise = system.noise.get_blended_noise(size=40*40)
                     stats = system.noise.get_source_stats()
                     base_ntp = stats.get('ntp_offset', 0.0)
@@ -245,24 +249,16 @@ async def websocket_endpoint(websocket: WebSocket):
                     current_braid = system.text_comm.last_text_unitary if system.text_comm else 0.0
                     coupling = system.sync_config['coupling']
                     
-                    # BURST MODE: Rechne die Physik schnell hintereinander
+                    # BURST
                     for _ in range(steps_to_catch_up):
                         system.holo.step(bg_noise, current_braid * coupling, ntp_offset=total_offset)
-                        
-                        # Decay muss auch pro Schritt passieren
                         if isinstance(system.text_comm.last_text_unitary, torch.Tensor):
                              system.text_comm.last_text_unitary *= 0.95
                     
-                    # Zeitstempel aktualisieren
                     last_physics_update_time += (steps_to_catch_up * target_dt)
 
-                # 2. NETZWERK SCHRITT (Adaptiv & Entkoppelt)
-                # ------------------------------------------
-                # Wir senden nur den LETZTEN Stand nach dem Burst.
-                # Die Schritte dazwischen werden übersprungen (Frame Skipping), genau wie du wolltest.
-                
+                # --- 4. NETWORK STEP ---
                 if now - last_broadcast_time > current_broadcast_interval:
-                    
                     send_start_time = time.time()
                     
                     metrics_raw = system.holo.get_metrics()
@@ -295,17 +291,14 @@ async def websocket_endpoint(websocket: WebSocket):
                     
                     last_broadcast_time = time.time()
                     
-                    # Adaptives Intervall berechnen
+                    # Adaptives Intervall
                     send_duration = last_broadcast_time - send_start_time
-                    target_interval = send_duration * 4.0 # 25% Load Target
+                    target_interval = send_duration * 4.0
                     current_broadcast_interval = max(0.1, min(target_interval, 2.0))
 
             except Exception as e:
                 pass
                 
-            # Kurzer Sleep, um CPU nicht zu grillen.
-            # Da wir die Catch-Up Logik haben, ist die exakte Dauer hier egal.
-            # 0.01s gibt der CPU genug Zeit zum Atmen.
             await asyncio.sleep(0.01)
             
     async def _receive_messages():
