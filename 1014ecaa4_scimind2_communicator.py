@@ -801,6 +801,66 @@ def main(stdscr):
         interface.text_comm.messages.extend(history)
     interface.run()
 
+# ==============================================================================
+# PERFORMANCE TUNER (REAL-WORLD SIMULATION)
+# ==============================================================================
+class AutoPerformanceTuner:
+    """
+    Führt eine echte Simulation der Physik-Engine durch, um die Tick-Rate zu bestimmen.
+    """
+    @staticmethod
+    def tune(N=40):
+        print(f"[INIT] Benchmarking Physics Core (N={N})...")
+        
+        try:
+            # 1. Instanziieren der ECHTEN Physik-Engine
+            # Wir nutzen exakt die Klasse, die später läuft.
+            test_comm = SciMindCommunicator(N=N)
+            
+            # 2. Synthetische Daten vorbereiten
+            # Rauschen wie im echten Betrieb
+            dummy_noise = torch.rand(N, N, dtype=torch.float32)
+            # Text-Feld (Braid) simulieren (wir tun so, als wäre Text da)
+            dummy_braid = torch.zeros(N, N, dtype=torch.float32)
+            
+            # 3. Warm-Up (JIT Compiler & Caches aufwecken)
+            for _ in range(5):
+                test_comm.step(dummy_noise, dummy_braid, ntp_offset=0.0)
+            
+            # 4. Messung (30 Frames simulieren)
+            iterations = 30
+            t_start = time.time()
+            
+            for _ in range(iterations):
+                # Der exakte Aufruf, der auch in app.py passiert
+                test_comm.step(dummy_noise, dummy_braid, ntp_offset=0.001)
+                
+            t_end = time.time()
+            avg_time_per_tick = (t_end - t_start) / iterations
+            
+            print(f"[PERF] Average Tick Calculation Time: {avg_time_per_tick*1000:.2f} ms")
+            
+            # 5. Berechnung des Delays (Die 50% Regel)
+            # Wir wollen, dass der Server maximal 50% der Zeit rechnet.
+            # Also muss Pause >= Rechenzeit sein.
+            
+            # Sicherheitsfaktor 1.2 für Overhead (JSON Serialisierung, Websocket Netzwerk)
+            recommended_delay = avg_time_per_tick * 1.5
+            
+            # Clamping (Grenzen setzen)
+            # Nicht schneller als 30 FPS (0.033s), um Browser nicht zu überhitzen
+            # Nicht langsamer als 2 FPS (0.5s), sonst sieht es kaputt aus
+            final_delay = max(0.033, min(recommended_delay, 0.5))
+            
+            fps = 1.0 / final_delay
+            print(f"[PERF] Setting Tick Delay to {final_delay:.4f}s (~{fps:.1f} FPS) to manage CPU load.")
+            
+            return final_delay
+                
+        except Exception as e:
+            print(f"[PERF] Benchmark crash ({e}). Fallback to 10 Hz.")
+            return 0.10
+
 if __name__ == "__main__":
      try:
         curses.wrapper(main)
