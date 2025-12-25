@@ -194,7 +194,7 @@ async def websocket_endpoint(websocket: WebSocket):
     
     # Wait for session init
     while not system.ready:
-        await asyncio.sleep(0.1)
+        await asyncio.sleep(system.tick_delay)
     
     # Send initial history
     history_msgs = [
@@ -206,7 +206,7 @@ async def websocket_endpoint(websocket: WebSocket):
     async def _emit_state():
         while True:
             if not system.ready:
-                await asyncio.sleep(1)
+                await asyncio.sleep(system.tick_delay)
                 continue
 
             try:
@@ -275,7 +275,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 # print(f"Broadcast Error: {e}")
                 pass
                 
-            await asyncio.sleep(0.05) # 20Hz update
+            await asyncio.sleep(system.tick_delay)
             
     async def _receive_messages():
         try:
