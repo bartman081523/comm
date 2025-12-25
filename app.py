@@ -87,7 +87,6 @@ class FormulaEngine:
 class WebSystem:
     def __init__(self):
         self.mgr = exp1014ecaa4.SessionManager()
-        self.tick_delay = exp1014ecaa4.AutoPerformanceTuner.tune(N=40)
         self.vocab = None
         self.learner = None # Sync Learner
         self.decoder = None
@@ -204,102 +203,78 @@ async def websocket_endpoint(websocket: WebSocket):
     await websocket.send_json({"type": "history", "data": history_msgs})
     
     async def _emit_state():
-        # --- ADAPTIVE NETWORK THROTTLE ---
-        current_broadcast_interval = 0.5
-        last_broadcast_time = 0
-        
-        # --- PHYSICS TIMEKEEPING ---
-        last_physics_update_time = time.time()
-        target_dt = system.tick_delay 
-        
-        # Merker, ob wir gerade pausiert waren
-        was_paused = False
-        
         while True:
-            # 1. PAUSE CHECK
             if not system.ready:
-                await asyncio.sleep(0.1)
-                was_paused = True
+                await asyncio.sleep(1)
                 continue
-            
-            # 2. AUFWACH-RESET (Wichtig für Import!)
-            if was_paused:
-                # Wir waren pausiert (z.B. Import). 
-                # Resetten wir die Zeit, damit wir nicht versuchen, 
-                # die Import-Dauer als "Lag" nachzuholen.
-                last_physics_update_time = time.time()
-                was_paused = False
 
             try:
-                # --- 3. CATCH-UP LOGIC ---
-                now = time.time()
-                real_time_passed = now - last_physics_update_time
-                steps_to_catch_up = int(real_time_passed / target_dt)
+                # 1. Physics Evolution (Continuous)
+                # Noise source
+                bg_noise = system.noise.get_blended_noise(size=40*40)
+                                
+                # Stats for Wick Rotation
+                stats = system.noise.get_source_stats()
+                base_ntp = stats.get('ntp_offset', 0.0)
+                off = system.sync_config['offset']
+                total_offset = base_ntp + off
                 
-                # Limit: Max 20 Schritte aufholen
-                steps_to_catch_up = min(steps_to_catch_up, 20)
+                # Input Unitary (Braid Field)
+                # FIX: text_comm.last_text_unitary in 1014e is a Tensor (Braid Field)
+                current_braid = system.text_comm.last_text_unitary if system.text_comm else 0.0
+                coupling = system.sync_config['coupling']
+
+                # STEP using SciMind 2.0 Logic (including ntp_offset for Wick Rotation)
+                # Note: SciMindCommunicator.step accepts braid field + ntp_offset
+                metrics_raw = system.holo.step(bg_noise, current_braid * coupling, ntp_offset=total_offset)
                 
-                if steps_to_catch_up > 0:
-                    bg_noise = system.noise.get_blended_noise(size=40*40)
-                    stats = system.noise.get_source_stats()
-                    base_ntp = stats.get('ntp_offset', 0.0)
-                    off = system.sync_config['offset']
-                    total_offset = base_ntp + off
-                    
-                    current_braid = system.text_comm.last_text_unitary if system.text_comm else 0.0
-                    coupling = system.sync_config['coupling']
-                    
-                    # BURST
-                    for _ in range(steps_to_catch_up):
-                        system.holo.step(bg_noise, current_braid * coupling, ntp_offset=total_offset)
-                        if isinstance(system.text_comm.last_text_unitary, torch.Tensor):
-                             system.text_comm.last_text_unitary *= 0.95
-                    
-                    last_physics_update_time += (steps_to_catch_up * target_dt)
-
-                # --- 4. NETWORK STEP ---
-                if now - last_broadcast_time > current_broadcast_interval:
-                    send_start_time = time.time()
-                    
-                    metrics_raw = system.holo.get_metrics()
-                    phases = system.holo.phases.tolist() 
-                    maps = system.holo.get_maps()
-                    
-                    metrics = {
-                        "causal_integrity": float(metrics_raw['causal_integrity']),
-                        "vorticity": float(metrics_raw['vorticity']),
-                        "coherence": float(metrics_raw['fidelity']),
-                        "godel_gap": system.calculate_godel_gap(),
-                        "entropy": float(metrics_raw['surprisal'])
-                    }
-                    
-                    formula_data = system.formula_engine.generate(metrics['coherence'], metrics)
-                    vocab_stats = {
-                        "total": len(system.vocab.user_words) if system.vocab else 0,
-                        "top": system.vocab.get_top_terms(5) if system.vocab else []
-                    }
-                    
-                    await websocket.send_json({
-                        "type": "state", 
-                        "metrics": metrics, 
-                        "phases": phases,
-                        "maps": maps,
-                        "vocab": vocab_stats,
-                        "formula": formula_data,
-                        "ntp_status": f"NTP: {base_ntp:+.4f}"
-                    })
-                    
-                    last_broadcast_time = time.time()
-                    
-                    # Adaptives Intervall
-                    send_duration = last_broadcast_time - send_start_time
-                    target_interval = send_duration * 4.0
-                    current_broadcast_interval = max(0.1, min(target_interval, 2.0))
-
+                # Decay the tensor signal (Memory Fade)
+                if isinstance(system.text_comm.last_text_unitary, torch.Tensor):
+                     system.text_comm.last_text_unitary *= 0.95
+                
+                # Attributes
+                coherence = float(system.holo.fidelity)
+                vorticity = float(system.holo.vorticity) # Chern Number
+                entropy_val = float(system.holo.surprisal)
+                ci = float(system.holo.causal_integrity)
+                phases = system.holo.phases.tolist() 
+                
+                # Advanced Metrics
+                godel_gap = system.calculate_godel_gap()
+                
+                metrics = {
+                    "causal_integrity": ci,
+                    "vorticity": vorticity, # Chern
+                    "coherence": coherence,
+                    "godel_gap": godel_gap,
+                    "entropy": entropy_val
+                }
+                
+                # Generate Formula
+                formula_data = system.formula_engine.generate(coherence, metrics)
+                
+                vocab_stats = {
+                    "total": len(system.vocab.user_words) if system.vocab else 0,
+                    "top": system.vocab.get_top_terms(5) if system.vocab else []
+                }
+                
+                # GET MAPS (Gating, Vorticity)
+                maps = system.holo.get_maps()
+                
+                await websocket.send_json({
+                    "type": "state", 
+                    "metrics": metrics, 
+                    "phases": phases,
+                    "maps": maps, # NEW: Send Maps
+                    "vocab": vocab_stats,
+                    "formula": formula_data,
+                    "ntp_status": f"NTP: {base_ntp:+.4f}"
+                })
             except Exception as e:
+                # print(f"Broadcast Error: {e}")
                 pass
                 
-            await asyncio.sleep(0.01)
+            await asyncio.sleep(0.05) # 20Hz update
             
     async def _receive_messages():
         try:
@@ -310,9 +285,13 @@ async def websocket_endpoint(websocket: WebSocket):
                     text = msg['text']
                     if system.ready and system.text_comm:
                         noise = system.noise.get_blended_noise(size=64)
+                        
+                        # Process message (Imprints Braid, Decodes Response)
                         response_text = system.text_comm.process_message(text, noise)
                         
+                        # Sync Learning Update
                         metrics = system.holo.get_metrics()
+                        
                         system.learner.record_trial(
                             system.sync_config['offset'], 
                             system.sync_config['coupling'], 
@@ -326,6 +305,7 @@ async def websocket_endpoint(websocket: WebSocket):
                             "data": new_msgs
                         })
                         
+                        # Auto Save
                         system.mgr.save_global_state(
                             system.vocab.get_state(),
                             system.learner.get_state(),
@@ -335,8 +315,9 @@ async def websocket_endpoint(websocket: WebSocket):
         except WebSocketDisconnect:
             pass
         except Exception as e:
-            pass
+            print(f"Receive Error: {e}")
 
+    # Run both loops
     emit_task = asyncio.create_task(_emit_state())
     receive_task = asyncio.create_task(_receive_messages())
     
@@ -364,32 +345,27 @@ async def export_state():
         'timestamp': time.time()
     }
 
-
 @app.post("/api/session/import")
 async def import_state(request: Request):
     """Empfängt ein JSON, initialisiert das System und überschreibt den Zustand."""
     try:
-        # --- SICHERUNG: ALLES STOPPEN ---
-        system.ready = False
-        # Kurzes Warten, damit laufende Loops sicher parken
-        await asyncio.sleep(0.1) 
-        
         data = await request.json()
         
-        # 0. Session Manager vorbereiten
+        # 0. Session Manager vorbereiten (falls noch keine ID existiert)
         if not system.mgr.session_id:
              system.mgr.start_new_session()
 
-        # 1. Komponenten INITIALISIEREN
+        # 1. Komponenten INITIALISIEREN (Wichtig: Auch wenn sie noch nicht existieren)
+        # Wir erstellen alles neu, um sicherzugehen, dass keine alten Datenreste stören.
         system.vocab = exp1014ecaa4.VocabularyLearner(data.get('vocab', {}))
         system.learner = exp1014ecaa4.SynchronizationLearner(data.get('sync', {}))
         
         system.decoder = exp1014ecaa4.SemanticAdaptiveDecoder(system.vocab)
         
-        # Physics Engine neu erstellen (Vakuum-Zustand)
+        # Physics Engine neu erstellen
         system.holo = exp1014ecaa4.SciMindCommunicator(N=40)
         
-        # 2. Physics State wiederherstellen (Daten laden)
+        # 2. Physics State wiederherstellen
         if 'physics' in data and data['physics']:
             system.holo.restore_full_state(data['physics'])
             
@@ -400,13 +376,14 @@ async def import_state(request: Request):
         
         # 4. Chat History wiederherstellen
         if 'history' in data:
+            # Konvertieren der Liste zurück in eine Deque
             system.text_comm.messages = exp1014ecaa4.deque(data['history'], maxlen=50)
             
-        # 5. System wieder freigeben
+        # 5. System "Scharfschalten"
         system.sync_config = system.learner.best_config
-        system.ready = True # <--- JETZT dürfen die Loops wieder loslegen
+        system.ready = True
         
-        # 6. Sofort speichern
+        # 6. Sofort speichern (Auto-Save)
         system.mgr.save_global_state(
             system.vocab.get_state(),
             system.learner.get_state(),
@@ -417,11 +394,11 @@ async def import_state(request: Request):
         return {"status": "ok", "message": "Session imported successfully"}
     except Exception as e:
         print(f"Import Error: {e}")
+        # traceback für besseres Debugging in den Logs ausgeben
         import traceback
         traceback.print_exc()
-        # Im Fehlerfall System wieder freigeben, sonst hängt alles
-        system.ready = True 
         return {"status": "error", "message": str(e)}
+
 
 if __name__ == "__main__":
     import uvicorn
