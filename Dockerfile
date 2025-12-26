@@ -2,7 +2,7 @@ FROM python:3.10
 ENV WEB_OR_LOCAL=web
 
 # User setup für Hugging Face Security
-user root
+USER root
 RUN useradd -m -u 1000 user
 USER user
 ENV PATH="/home/user/.local/bin:$PATH"
