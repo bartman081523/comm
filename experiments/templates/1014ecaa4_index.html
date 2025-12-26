@@ -25,7 +25,6 @@
             height: 100dvh;
             width: 100vw;
             display: grid;
-            /* LAYOUT UPDATE: Viz (30%) | Chat (40%) | Data (30%) */
             grid-template-columns: 30% 40% 30%;
             grid-template-rows: 1fr;
             overflow: hidden;
@@ -37,7 +36,6 @@
             bottom: 0;
         }
 
-        /* --- LEFT PANEL: VISUALIZER (Moved from Center) --- */
         #viz-panel {
             background: #000;
             border-right: 1px solid var(--border);
@@ -95,7 +93,6 @@
             background: rgba(0, 255, 255, 0.1);
         }
 
-        /* --- CENTER PANEL: CHAT (Moved from Left) --- */
         #chat-panel {
             background: var(--panel);
             border-right: 1px solid var(--border);
@@ -108,33 +105,29 @@
             z-index: 5;
         }
 
-        /* Container-Sicherung: Verhindert, dass der Chat breiter als der Bildschirm wird */
-#messages {
-    flex: 1;
-    overflow-y: auto;
-    overflow-x: hidden !important; /* WICHTIG: Kappt alles, was zu breit ist */
-    padding: 20px;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    width: 100%; /* Zwingt den Container auf Bildschirmbreite */
-    box-sizing: border-box;
-}
+        #messages {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden !important;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            width: 100%;
+            box-sizing: border-box;
+        }
 
-/* Nachrichten-Fix: Erzwingt den Umbruch um jeden Preis */
-.msg {
-    padding: 10px 15px;
-    border-radius: 6px;
-    font-size: 0.95em;
-    line-height: 1.5;
-    max-width: 90%; 
-    
-    /* DER HAMMER: */
-    overflow-wrap: anywhere !important;  /* Modernster Befehl für "überall brechen" */
-    word-break: break-all !important;    /* Bricht auch mitten im Wort/Zahl */
-    white-space: pre-wrap !important;    /* Erhält Formatierung, erlaubt aber Umbruch */
-    min-width: 0;                        /* Flexbox-Fix für Schrumpfen */
-}
+        .msg {
+            padding: 10px 15px;
+            border-radius: 6px;
+            font-size: 0.95em;
+            line-height: 1.5;
+            max-width: 90%; 
+            overflow-wrap: anywhere !important;
+            word-break: break-all !important;
+            white-space: pre-wrap !important;
+            min-width: 0;
+        }
 
         .msg.user {
             align-self: flex-end;
@@ -181,7 +174,6 @@
             text-transform: uppercase;
         }
 
-        /* --- RIGHT PANEL: DATA (Unchanged) --- */
         #data-panel {
             background: #080808;
             display: flex;
@@ -244,7 +236,6 @@
             min-height: 200px;
         }
 
-        /* OVERLAY */
         #session-overlay {
             position: fixed;
             top: 0;
@@ -259,25 +250,19 @@
             align-items: center;
         }
 
-        /* MOBILE OPTIMIZATIONS */
         @media (max-width: 900px) {
             body {
                 grid-template-columns: 1fr;
-                /* Viz (ROW, smaller) | Chat (Maximize) | Data (Visible) */
                 grid-template-rows: 25dvh 1fr 20dvh;
                 height: 100vh;
-                /* Fallback */
                 height: 100dvh;
-                /* Dynamic Height */
                 overflow: hidden;
             }
 
-            /* Hide Status Text */
             #status-active { display: flex !important; }
 
             #viz-panel {
                 order: 1;
-                /* CHANGE: Row layout for side-buttons */
                 flex-direction: row;
                 align-items: stretch;
                 width: 100vw;
@@ -291,7 +276,6 @@
             #canvas-container {
                 padding: 0;
                 flex: 1;
-                /* Take remaining width */
                 min-width: 0;
                 height: 100%;
                 display: flex;
@@ -300,7 +284,6 @@
             }
 
             canvas {
-                /* Square canvas fits in the container */
                 max-width: 95%;
                 max-height: 95%;
                 width: auto;
@@ -309,7 +292,6 @@
             }
 
             #mode-selector {
-                /* CHANGE: Sidebar Column */
                 position: static;
                 transform: none;
                 width: 60px;
@@ -377,20 +359,13 @@
                 background: #000;
                 z-index: 20;
                 font-size: 0.7em;
-                /* Smaller font */
-                /* CHANGE: Split Layout */
                 display: grid;
                 grid-template-columns: 1fr 1fr;
                 gap: 2px;
                 overflow-y: auto;
-                /* Allow scrolling if huge */
-                /* Safe Area for Home Bar */
                 padding-bottom: env(safe-area-inset-bottom) !important;
             }
 
-            /* Keyboard Handling Removed */
-
-            /* Left: Metrics Grid */
             .panel-section:nth-of-type(1) {
                 grid-column: 1;
                 display: flex;
@@ -401,11 +376,7 @@
                 height: 100%;
             }
 
-            .active-title {
-                display: none;
-            }
-
-            /* Hide title to save space? */
+            .active-title { display: none; }
 
             #metrics-grid {
                 display: grid;
@@ -431,7 +402,6 @@
                 bottom: 0;
                 left: 0;
                 width: 100%;
-                /* Update: Full height to "center" visually */
                 height: 100%;
                 opacity: 0.3;
                 pointer-events: none;
@@ -449,7 +419,6 @@
                 z-index: 2;
             }
 
-            /* Right: Formula Stream */
             .panel-section:nth-of-type(2) {
                 grid-column: 2;
                 display: flex;
@@ -482,7 +451,6 @@
                 padding-bottom: 4px !important;
             }
 
-            /* Hide Lexicon on mobile for now */
             .panel-section:nth-of-type(3) {
                 display: none;
             }
@@ -494,8 +462,6 @@
 
 <body>
 
-    <!-- LEFT: VISUALIZER (New Location) -->
-    <!-- LEFT: VISUALIZER (New Location) -->
     <div id="viz-panel">
         <div id="mode-selector">
             <button class="mode-btn active" onclick="setMode(0)">VORTEX</button>
@@ -508,15 +474,13 @@
         </div>
     </div>
 
-    <!-- CENTER: CHAT (New Location) -->
     <div id="chat-panel">
-        <!-- HEADER MIT EXPORT BUTTON -->
-<div id="status-active" style="display:flex; justify-content:space-between; align-items:center; padding:10px 15px; border-bottom:1px solid #333; font-size:0.8em; color:#666; text-transform:uppercase; letter-spacing:1px; flex-shrink: 0;">
-    <span>Quantum Link Active</span>
-    <button onclick="exportSession()" title="Save current session to JSON" style="padding:5px 12px; font-size:0.9em; border:1px solid #444; background: #000; color: var(--accent); cursor: pointer; border-radius: 4px; display: flex; align-items: center; gap: 5px;">
-        <span>💾</span> SAVE
-    </button>
-</div>
+        <div id="status-active" style="display:flex; justify-content:space-between; align-items:center; padding:10px 15px; border-bottom:1px solid #333; font-size:0.8em; color:#666; text-transform:uppercase; letter-spacing:1px; flex-shrink: 0;">
+            <span>Quantum Link Active</span>
+            <button onclick="exportSession()" title="Save current session to JSON" style="padding:5px 12px; font-size:0.9em; border:1px solid #444; background: #000; color: var(--accent); cursor: pointer; border-radius: 4px; display: flex; align-items: center; gap: 5px;">
+                <span>💾</span> SAVE
+            </button>
+        </div>
         <div id="messages"></div>
         <form id="input-area">
             <input type="text" id="msg-input" placeholder="Enter signal..." autocomplete="off">
@@ -524,10 +488,8 @@
         </form>
     </div>
 
-    <!-- RIGHT: DATA -->
     <div id="data-panel">
         <div class="panel-section">
-            <!-- Headers are often hidden in mobile CSS but kept for desktop -->
             <div class="panel-header active-title">Field Metrics</div>
             <div id="metrics-grid">
                 <div class="metric-box">
@@ -564,25 +526,14 @@
         </div>
     </div>
 
-    <!-- OVERLAY -->
-    <!-- OVERLAY -->
     <div id="session-overlay">
         <h1 style="color:var(--accent); text-transform:uppercase; letter-spacing:4px; margin-bottom: 30px;">System Initialization</h1>
-    
         <div id="session-list" style="width: 80%; max-width:400px; max-height:40vh; overflow-y:auto; border:1px solid #444; margin-bottom:20px; background:#111;"></div>
-    
-        <!-- BUTTONS CONTAINER -->
         <div style="display: flex; gap: 10px;">
             <button onclick="newSession()" style="padding:15px 30px; font-size:1em; letter-spacing:2px; border:1px solid var(--accent); background: #000; color: var(--accent); cursor: pointer;">NEW SESSION</button>
-        
-            <!-- NEU: EXPORT / IMPORT -->
             <button onclick="document.getElementById('importFile').click()" style="padding:15px 20px; font-size:1em; border:1px solid #666; background: #111; color: #aaa; cursor: pointer;">IMPORT</button>
     </div>
-    
-    <!-- Verstecktes Input Feld für Datei-Upload -->
     <input type="file" id="importFile" style="display:none" onchange="importSession(this)">
-    
-    <!-- Status Meldung -->
     <div id="import-status" style="margin-top:10px; color: #666; font-size: 0.8em; height: 20px;"></div>
 </div> 
 
@@ -591,8 +542,10 @@
         let mode = 0;
         let gatingMap = new Float32Array(40 * 40);
         let vorticityMap = new Float32Array(40 * 40);
+        // --- STEP 2: SYNC TIME VARIABLE ---
+        let serverSimTime = 0.0;
+        // ----------------------------------
 
-        // --- SESSION LOGIC ---
         function fetchSessions() {
             fetch('/api/sessions').then(r => r.json()).then(sessions => {
                 const list = document.getElementById('session-list');
@@ -613,26 +566,20 @@
         function loadSession(id) { fetch(`/api/session/load/${id}`, { method: 'POST' }).then(r => r.json()).then(r => { if (r.status === 'ok') startWS(); }); }
         function newSession() { fetch(`/api/session/new`, { method: 'POST' }).then(r => r.json()).then(r => { if (r.status === 'ok') startWS(); }); }
 
-
-
-// --- EXPORT / IMPORT LOGIC ---
-
 function exportSession() {
-    // 1. Rufe Daten vom Server ab
     fetch('/api/session/export')
         .then(r => r.json())
         .then(data => {
             if(data.error) {
-                alert("Error: System not ready (Start a session first)");
+                alert("Error: System not ready");
                 return;
             }
-            // 2. Erzeuge Download-Link im Browser
             const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(data, null, 2));
             const downloadAnchorNode = document.createElement('a');
             downloadAnchorNode.setAttribute("href", dataStr);
             const date = new Date().toISOString().slice(0,19).replace(/:/g,"-");
             downloadAnchorNode.setAttribute("download", "scimind_session_" + date + ".json");
-            document.body.appendChild(downloadAnchorNode); // required for firefox
+            document.body.appendChild(downloadAnchorNode); 
             downloadAnchorNode.click();
             downloadAnchorNode.remove();
         });
@@ -647,10 +594,7 @@ function importSession(input) {
         const jsonContent = e.target.result;
         try {
             const data = JSON.parse(jsonContent);
-            
             document.getElementById('import-status').innerText = "Uploading...";
-            
-            // 3. Sende JSON an Server
             fetch('/api/session/import', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
@@ -659,7 +603,6 @@ function importSession(input) {
             .then(r => r.json())
             .then(resp => {
                 if(resp.status === 'ok') {
-                    // 4. Bei Erfolg: Starte Websocket und blende Overlay aus
                     document.getElementById('import-status').innerText = "Success!";
                     startWS();
                 } else {
@@ -671,19 +614,11 @@ function importSession(input) {
         }
     };
     reader.readAsText(file);
-    // Reset input so same file can be selected again
     input.value = '';
 }
 
-
-      
-
-      
-        // --- WEBSOCKET ---
-        function startWS() {
+function startWS() {
     document.getElementById('session-overlay').style.display = 'none';
-    
-    // FIX FÜR HUGGINGFACE / HTTPS
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
     
@@ -693,7 +628,6 @@ function importSession(input) {
         else if (['chat', 'history'].includes(msg.type)) msg.data.forEach(addMsg);
     };
     
-    // Optional: Debugging
     ws.onerror = (e) => console.error("WebSocket Error:", e);
     ws.onclose = () => console.log("WebSocket Disconnected");
 }
@@ -705,23 +639,23 @@ function importSession(input) {
             });
         }
 
-        // --- APP LOGIC ---
         const historyLen = 50;
         const metricsHistory = { ci: new Array(historyLen).fill(0), ent: new Array(historyLen).fill(0), godel: new Array(historyLen).fill(0), vort: new Array(historyLen).fill(0) };
 
         function updateState(s) {
             window.currentMetrics = s.metrics;
 
-            // Parse Maps
+            // --- STEP 2: SYNC TIME UPDATE ---
+            if (s.sim_time) {
+                serverSimTime = s.sim_time;
+            }
+            // --------------------------------
+
             if (s.maps) {
-                // Flatten 40x40 arrays
-                // Assume server sends list of lists
-                // We flatten them to Float32Array for texture
                 if (s.maps.gating) gatingMap = new Float32Array(s.maps.gating.flat());
                 if (s.maps.vorticity) vorticityMap = new Float32Array(s.maps.vorticity.flat());
             }
 
-            // Update DOM metrics
             ['ci', 'ent', 'godel', 'vort'].forEach(k => {
                 const key = k === 'ci' ? 'causal_integrity' : k === 'ent' ? 'entropy' : k === 'godel' ? 'godel_gap' : 'vorticity';
                 const val = s.metrics[key];
@@ -731,8 +665,6 @@ function importSession(input) {
             });
 
             if (s.phases) {
-                // Prepare Noise / Phase data
-                // We use phase as R channel
                 const phaseData = s.phases.flat();
                 window.currentPhaseData = phaseData;
             }
@@ -788,27 +720,22 @@ function importSession(input) {
             MathJax.typesetPromise([el]);
         }
 
-        // =============================================================================
-        // WEBGL 2.0 ADVANCED VISUALIZER
-        // =============================================================================
         const gl = document.getElementById('holoCanvas').getContext('webgl2');
         if (!gl) alert("WebGL 2 Required");
 
-        // Vertex Shader
         const vs = `#version 300 es
         in vec2 pos; out vec2 uv;
         void main() { uv = pos*0.5+0.5; gl_Position=vec4(pos,0,1); }`;
 
-        // Fragment Shader WITH VORTICITY & GATING MAPS
         const fs = `#version 300 es
         precision highp float;
         in vec2 uv; out vec4 color;
         
         uniform float time;
-        uniform sampler2D uPhase;     // R channel = Phase
-        uniform sampler2D uGating;    // R channel = Gating (Focus)
-        uniform sampler2D uVorticity; // R channel = Vorticity (Charge)
-        uniform int uMode; // 0=VORTEX, 1=INDRA, 2=HOFSTADTER, 3=GODEL
+        uniform sampler2D uPhase;    
+        uniform sampler2D uGating;   
+        uniform sampler2D uVorticity;
+        uniform int uMode; 
 
         #define PI 3.14159265
         #define TAU 6.2831853
@@ -820,8 +747,6 @@ function importSession(input) {
         }
 
         void main() {
-            // Read textures
-            // UV is [0,1], texture is 40x40, nearest neighbor is good for discrete grid
             float phase = texture(uPhase, uv).r; 
             float gating = texture(uGating, uv).r;
             float vort = texture(uVorticity, uv).r;
@@ -829,84 +754,57 @@ function importSession(input) {
             vec3 col = vec3(0.0);
 
             if (uMode == 0) {
-                // VORTEX MODE (Strange Loop)
-                // Color by Phase (Rainbow), Brightness by Gating (Heatmap)
-                // Overlay Vorticity as Dots
-                
-                // 1. Base Phase Color (Rainbow)
-                // Map phase [0, 2PI] roughly to Hue
                 float hue = phase / TAU;
                 col = hsv2rgb(vec3(hue, 1.0, 1.0));
-                
-                // 2. Gating Heatmap (Darken quiet zones)
-                // High gating = High Focus = Bright
                 col *= (0.2 + 0.8 * gating);
 
-                // 3. Vorticity Overlay (Red/Blue dots) (Point 3)
-                // If vorticity is significant (> 0.3), draw a dot
                 if (abs(vort) > 0.3) {
-                    vec2 grid_uv = uv * 40.0; // Scale UV to grid coordinates
-                    vec2 cell_center = floor(grid_uv) + 0.5; // Center of the current cell
-                    float dist = length(grid_uv - cell_center); // Distance from cell center
+                    vec2 grid_uv = uv * 40.0; 
+                    vec2 cell_center = floor(grid_uv) + 0.5; 
+                    float dist = length(grid_uv - cell_center); 
                     
-                    // Draw a dot if within a certain radius of the cell center
-                    if (dist < 0.4) { // Adjust radius as needed
+                    if (dist < 0.4) { 
                         vec3 vCol = (vort > 0.0) ? vec3(1.0, 0.0, 0.0) : vec3(0.0, 0.5, 1.0);
-                        col = mix(col, vCol, 0.8); // Blend with existing color
+                        col = mix(col, vCol, 0.8); 
                     }
                 }
             }
             else if (uMode == 1) {
-                // INDRA'S NET (Fractal Jewels)
-                // Uses Gating to reflect
                 vec2 p = uv * 2.0 - 1.0;
                 float r = length(p);
                 float a = atan(p.y, p.x);
                 float f = cos(a * 12.0 + time) * sin(r * 10.0 - time);
                 
-                // Jewel sparkle based on gating
                 float sparkle = gating * smoothstep(0.4, 0.5, abs(f));
                 col = vec3(0.1, 0.0, 0.2) + vec3(0.8, 0.6, 1.0) * sparkle;
                 col += hsv2rgb(vec3(phase/TAU, 0.5, 0.5)) * 0.3;
             } 
             else if (uMode == 2) {
-                // HOFSTADTER BUTTERFLY (Energy Bands)
-                // Visualizing the quantized flux zones
-                float flux = vort * 20.0; // Scale up
+                float flux = vort * 20.0; 
                 float band = sin(flux * 3.14 + phase);
                 col = vec3(band * 0.5 + 0.5, 0.0, 1.0 - band*0.5);
                 col *= gating;
             }
             else if (uMode == 3) {
-                // GODEL NEBULA (Uncertainty)
-                // Show areas of high Entropy/Unrest (Low Gating)
-                // Low Gating = Fog
                 float fog = 1.0 - gating; 
-                
-                // Animated fog
                 float n = sin(uv.x*10.0 + time) * cos(uv.y*10.0 - time);
-                
                 col = vec3(0.1) + vec3(0.5, 0.5, 0.5) * fog * n;
-                // Add flashes of insight (phase)
                 if (gating > 0.8) col += vec3(1.0, 1.0, 0.0) * 0.5;
             }
 
             color = vec4(col, 1.0);
         }`;
 
-        // Setup GL
         const p = gl.createProgram();
         const vsS = gl.createShader(gl.VERTEX_SHADER); gl.shaderSource(vsS, vs); gl.compileShader(vsS);
         const fsS = gl.createShader(gl.FRAGMENT_SHADER); gl.shaderSource(fsS, fs); gl.compileShader(fsS);
         if (!gl.getShaderParameter(fsS, gl.COMPILE_STATUS)) console.error(gl.getShaderInfoLog(fsS));
         gl.attachShader(p, vsS); gl.attachShader(p, fsS); gl.linkProgram(p); gl.useProgram(p);
 
-        // Quad
         const b = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b);
         gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
         const l = gl.getAttribLocation(p, 'pos'); gl.enableVertexAttribArray(l); gl.vertexAttribPointer(l, 2, gl.FLOAT, false, 0, 0);
 
-        // Textures
         function createTex(unit) {
             const t = gl.createTexture();
             gl.activeTexture(gl.TEXTURE0 + unit);
@@ -930,7 +828,11 @@ function importSession(input) {
         const locMode = gl.getUniformLocation(p, 'uMode');
 
         function render() {
-            gl.uniform1f(locTime, performance.now() / 1000);
+            // --- STEP 2: USE SERVER SIM TIME ---
+            // Replaced performance.now() with serverSimTime
+            gl.uniform1f(locTime, serverSimTime);
+            // -----------------------------------
+            
             gl.uniform1i(locMode, mode);
 
             if (window.currentPhaseData) {
@@ -949,10 +851,6 @@ function importSession(input) {
         }
         render();
 
-    </script>
-    <script>
-        // MOBILE KEYBOARD HANDLING (Safe Script Block)
-        // MOBILE KEYBOARD HANDLING REMOVED per user request
     </script>
 </body>
 
