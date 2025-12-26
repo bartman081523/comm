@@ -27,4 +27,4 @@ COPY --chown=user:user app.py app.py
 COPY --chown=user:user experiments/templates/1014ecaa4_index.html experiments/templates/1014ecaa4_index.html
 
 # Startbefehl: Überschreibt den __main__ Block im Code, um Port 7860 zu nutzen
-CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "7860", "--ws", "websockets", "--timeout-keep-alive", "120"]
+CMD ["uvicorn", "app:app", "--host", "::", "--port", "10000", "--ws", "websockets", "--timeout-keep-alive", "120"]
