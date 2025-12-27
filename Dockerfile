@@ -27,7 +27,7 @@ COPY --chown=user:user 1014ecaa4_scimind2_communicator.py 1014ecaa4_scimind2_com
 
 # 2. Die App (HINWEIS: Stelle sicher, dass deine lokale Datei 'comm-app.py' heißt 
 # oder passe den Namen hier an. Im Dockerfile unten kopierst du sie als 'app.py')
-COPY --chown=user:user comm-app.py app.py
+COPY --chown=user:user app.py app.py
 
 # 3. Das HTML Template
 COPY --chown=user:user experiments/templates/1014ecaa4_index.html experiments/templates/1014ecaa4_index.html
